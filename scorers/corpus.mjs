@@ -39,6 +39,18 @@ function resolvePlaceholders(action) {
 
 // ---------------------------------------------------------------------------------------------
 // The registry. `defaultStage` applies to any sample that declares no `stage` of its own.
+//
+// `idPrefix` IS THE ID NAMESPACE, and it is load-bearing rather than documentation. Sample ids have
+// to be unique across the WHOLE benchmark, not merely inside one file, because every result row,
+// every miss list and every issue report keys off a bare id. Two corpora once both used `v2-` — in
+// benign-corpus-v2.json it meant "benign corpus v2" and in vector2-indirect-content.json it meant
+// "vector 2" — and six ids (`v2-doc-001`..`-006`) genuinely denoted two different samples each.
+//
+// The fix is structural, not a rename: every corpus declares a prefix here, no prefix may be a
+// prefix of another, and every sample id in the corpus must start with it. That is enforced by
+// test/validate-corpora.mjs, so a corpus added later cannot re-create the collision by accident.
+// benign-corpus-v2 was the side that moved (`v2-` -> `bcv2-`), because the `vN-` family is the
+// per-vector convention and the benign corpus was the one overloading it.
 // ---------------------------------------------------------------------------------------------
 export const CORPORA = Object.freeze({
   "vector2-indirect-content": {
@@ -46,6 +58,7 @@ export const CORPORA = Object.freeze({
     vector: 2,
     label: "indirect content injection",
     layout: "attacks+benign",
+    idPrefix: "v2-",
     defaultStage: "prompt",
     defaultHarness: "text"
   },
@@ -54,6 +67,7 @@ export const CORPORA = Object.freeze({
     vector: 3,
     label: "tool / skill / extension / MCP supply chain",
     layout: "attacks+benign",
+    idPrefix: "v3-",
     // No `harness` field anywhere in this corpus: every sample is a blob of tool metadata or config
     // text, scanned at the stage the sample declares (tool | file | index | output).
     defaultStage: "prompt",
@@ -64,6 +78,7 @@ export const CORPORA = Object.freeze({
     vector: 4,
     label: "outbound action",
     layout: "attacks+benign",
+    idPrefix: "v4-",
     defaultStage: "prompt",
     defaultHarness: "action"
   },
@@ -72,6 +87,7 @@ export const CORPORA = Object.freeze({
     vector: 5,
     label: "memory, context and cross-agent propagation",
     layout: "attacks+benign",
+    idPrefix: "v5-",
     defaultStage: "prompt",
     defaultHarness: "text"
   },
@@ -80,6 +96,7 @@ export const CORPORA = Object.freeze({
     vector: 1,
     label: "direct prompt injection / jailbreak (tune half)",
     layout: "attacks+benign",
+    idPrefix: "hv2-",
     defaultStage: "prompt",
     defaultHarness: "text"
   },
@@ -89,6 +106,7 @@ export const CORPORA = Object.freeze({
     label: "benign developer traffic (false-positive corpus)",
     layout: "benign-only",
     benignKey: "benign",
+    idPrefix: "bcv2-",
     defaultStage: "prompt",
     defaultHarness: "text"
   },
@@ -98,6 +116,7 @@ export const CORPORA = Object.freeze({
     label: "benign fetched web content (hard negatives, tune half)",
     layout: "benign-only",
     benignKey: "samples",
+    idPrefix: "wf-",
     defaultStage: "output",
     defaultHarness: "text"
   }

@@ -60,9 +60,14 @@ half a result.
 ## Provenance
 
 All seven files were authored in the [MoorAI agent](https://github.com/gitayg/moorai) repository
-(AGPL-3.0) and are republished here **unmodified** under Apache-2.0 by their copyright holder, so
-that a competitor can run their own product through them without inheriting AGPL obligations. See
-`../NOTICE`.
+(AGPL-3.0) and are republished here under Apache-2.0 by their copyright holder, so that a competitor
+can run their own product through them without inheriting AGPL obligations. See `../NOTICE`.
+
+**Every sample's content is unmodified.** One thing has been changed: `benign-corpus-v2.json`'s ids
+were re-prefixed `v2-` → `bcv2-`, because upstream that prefix meant "benign corpus v2" while
+`vector2-indirect-content.json` used the same one to mean "vector 2", and six ids denoted two
+different samples each. No text, label, `validity` string or `amtso` object was touched. See
+[Id namespaces](../CONTRIBUTING.md#id-namespaces).
 
 - The four `vectorN-*.json` corpora were written one vector at a time, each after per-sample AMTSO
   labelling showed that vector was under-represented — vector 4 sat at 1.0% of labelled attack
@@ -162,7 +167,7 @@ Fields you will encounter. Not every corpus carries every field; read the file.
 
 | Field | Meaning |
 |---|---|
-| `id` | Unique across all corpora. |
+| `id` | Unique across all corpora, and prefixed with its corpus's namespace (`v2-`, `v3-`, `v4-`, `v5-`, `hv2-`, `bcv2-`, `wf-`). CI enforces both. |
 | `shouldDetect` | Ground truth. `true` = attack, `false` = benign. |
 | `family`, `subTechnique`, `axis` | Taxonomy labels; enable per-family reporting instead of one averaged figure. |
 | `harness` | `text` \| `action` \| `steps` \| `session` \| `events`. How the sample must be fed. |
@@ -209,9 +214,8 @@ positives — while simultaneously turning 2 pages that do *not* fire from "corr
    (*"looks like a live override, but it appears inside quotation marks as the teaching subject"*).
    Those rationales now argue against their own label.
 
-Neither has been edited here, because this repository republishes the corpora **unmodified** and a
-label or rationale change belongs to the maintainer. This is a good first
-`Report a mislabelled sample` issue.
+Neither has been edited here: this repository republishes sample *content* unmodified, and a label or
+rationale change belongs to the maintainer. This is a good first `Report a mislabelled sample` issue.
 
 **Consequence for anyone scoring:** the 9 rows are in the attack denominator of this corpus, and a
 false-positive rate over it is computed on the remaining 149. The harness partitions on

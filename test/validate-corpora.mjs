@@ -49,15 +49,28 @@ const ALLOWED_PLACEHOLDER_SECRETS = new Set([
   "AIzaSyEXAMPLE_KEY_NOT_REAL_000000000000"
 ]);
 
-// KNOWN CROSS-CORPUS ID COLLISIONS. `v2-doc-001`..`v2-doc-006` genuinely exist twice, as two
-// DIFFERENT samples: in benign-corpus-v2.json the prefix means "v2 corpus, docs bucket", and in
-// vector2-indirect-content.json it means "vector 2, document channel". Two id namespaces collided.
-// This is a defect in the shipped corpora, not an intended alias — it is allowlisted so the gate
-// still catches NEW collisions instead of being switched off, and it should be fixed by renaming
-// one side (which changes published per-sample rows, so it needs maintainer sign-off).
-const KNOWN_CROSS_CORPUS_ID_COLLISIONS = new Set([
-  "v2-doc-001", "v2-doc-002", "v2-doc-003", "v2-doc-004", "v2-doc-005", "v2-doc-006"
-]);
+// ---------------------------------------------------------------------------------------------
+// ID NAMESPACES.
+//
+// There is no collision allowlist here, and there must never be one again. `v2-doc-001`..`-006` used
+// to denote two different samples each — `v2-` meant "benign corpus v2, docs bucket" in one file and
+// "vector 2, document channel" in the other — and the collision was allowlisted with a staleness
+// test. An allowlist that outlives its defect rots into a blanket exemption, so the defect was fixed
+// instead: benign-corpus-v2's ids were re-prefixed `v2-` -> `bcv2-` and the namespace is now
+// STRUCTURAL. Each corpus owns a prefix, no prefix may be a prefix of another, and every id in the
+// corpus must start with its own. A corpus added later therefore cannot re-create the collision.
+//
+// This table is the test's own copy on purpose: it must fail if scorers/corpus.mjs and the corpora
+// drift apart, which importing the registry would hide.
+const ID_PREFIXES = {
+  "benign-corpus-v2.json": "bcv2-",
+  "benign-web-content-tune.json": "wf-",
+  "heldout-v2-tune.json": "hv2-",
+  "vector2-indirect-content.json": "v2-",
+  "vector3-supply-chain.json": "v3-",
+  "vector4-outbound-action.json": "v4-",
+  "vector5-memory-crossagent.json": "v5-"
+};
 
 // Credential shapes that must never enter the tree. The first three are inherited from the upstream
 // repo's corpus tests; the last three were added here because they are the shapes GitHub push
@@ -223,25 +236,40 @@ test("no duplicate ids within a corpus", () => {
 });
 
 test("no duplicate ids across corpora", () => {
+  // No allowlist and no exemption. An id names exactly one sample in the whole benchmark.
   const owner = new Map();
   for (const { file, array, s } of ALL) {
     const where = `${file}:${array}`;
-    if (owner.has(s.id)) {
-      assert.ok(KNOWN_CROSS_CORPUS_ID_COLLISIONS.has(s.id),
-        `id ${s.id} appears in both ${owner.get(s.id)} and ${where}; ids must be unique across the whole benchmark`);
-      continue;
-    }
+    assert.ok(!owner.has(s.id),
+      `id ${s.id} appears in both ${owner.get(s.id)} and ${where}; ids must be unique across the whole benchmark`);
     owner.set(s.id, where);
   }
 });
 
-test("the known-collision allowlist has not gone stale", () => {
-  // If a collision is fixed, the allowlist entry must be removed in the same PR — otherwise the
-  // list quietly grows into a blanket exemption.
-  const counts = new Map();
-  for (const { s } of ALL) counts.set(s.id, (counts.get(s.id) || 0) + 1);
-  const stale = [...KNOWN_CROSS_CORPUS_ID_COLLISIONS].filter((id) => (counts.get(id) || 0) < 2);
-  assert.deepEqual(stale, [], `no longer colliding, remove from KNOWN_CROSS_CORPUS_ID_COLLISIONS: ${stale.join(", ")}`);
+test("every corpus declares an id prefix and no prefix is a prefix of another", () => {
+  // The structural half of the uniqueness guarantee. Disjoint prefixes mean two corpora cannot
+  // produce the same id even by accident, so uniqueness survives a corpus being added by someone
+  // who never read the other files.
+  const undeclared = files.filter((f) => !ID_PREFIXES[f]);
+  assert.deepEqual(undeclared, [],
+    `corpora with no ID_PREFIXES entry in test/validate-corpora.mjs: ${undeclared.join(", ")}`);
+  const entries = Object.entries(ID_PREFIXES);
+  for (const [fa, pa] of entries) {
+    for (const [fb, pb] of entries) {
+      if (fa === fb) continue;
+      assert.ok(!pb.startsWith(pa),
+        `id prefix "${pa}" (${fa}) is a prefix of "${pb}" (${fb}) — the two namespaces can collide`);
+    }
+  }
+});
+
+test("every sample id sits inside its corpus's id namespace", () => {
+  for (const { file, array, s } of ALL) {
+    const p = ID_PREFIXES[file];
+    if (!p) continue; // the previous test is the gate on a missing entry
+    assert.ok(s.id.startsWith(p),
+      `${file}.${array}: id ${JSON.stringify(s.id)} must start with this corpus's id prefix ${JSON.stringify(p)}`);
+  }
 });
 
 test("every sample declares shouldDetect, or sits in a corpus where benign is implied", () => {

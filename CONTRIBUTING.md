@@ -134,6 +134,7 @@ so a reader can tell the difference.
 |---|---|
 | Parses; keeps the corpus's top-level shape | CI |
 | `id` is a non-empty string, unique **across the whole benchmark** | CI |
+| `id` starts with its corpus's declared prefix (see below) | CI |
 | Declares `shouldDetect` (or sits in a benign-only corpus where benign is implied) | CI |
 | Attack samples carry a `validity` string of meaningful length | CI (presence) + review (truth) |
 | AMTSO labels complete where the corpus carries them: `targetOfProtection`, `harm`, `requiredCapability`, and `attackVector` where the corpus records it per sample | CI |
@@ -144,6 +145,32 @@ so a reader can tell the difference.
 | No `split: "test"` row and no lock-shaped top-level key | CI |
 | The sample measures something the corpora do not already measure | Review |
 | The severity and the criteria behind it are stated | Review |
+
+### Id namespaces
+
+Every corpus owns an id prefix, and every id in it must start with that prefix:
+
+| Corpus | Prefix |
+|---|---|
+| `vector2-indirect-content.json` | `v2-` |
+| `vector3-supply-chain.json` | `v3-` |
+| `vector4-outbound-action.json` | `v4-` |
+| `vector5-memory-crossagent.json` | `v5-` |
+| `heldout-v2-tune.json` | `hv2-` |
+| `benign-corpus-v2.json` | `bcv2-` |
+| `benign-web-content-tune.json` | `wf-` |
+
+No prefix may be a prefix of another, so two corpora cannot mint the same id even by accident. This
+is not a naming convention — CI enforces both halves.
+
+It exists because it was once violated. `benign-corpus-v2.json` used `v2-` to mean "benign corpus
+v2" while `vector2-indirect-content.json` used it to mean "vector 2", and `v2-doc-001`..`-006`
+denoted **two different samples each**. That was allowlisted, with a test to stop the allowlist going
+stale — which is the failure mode, not the fix: an exemption that outlives its defect becomes a
+blanket exemption. The corpus was re-prefixed to `bcv2-` instead and the allowlist deleted.
+
+**Adding a corpus?** Add its prefix to `ID_PREFIXES` in `test/validate-corpora.mjs` and `idPrefix`
+in `scorers/corpus.mjs`. The two are deliberately separate copies: if they drift, CI fails.
 
 **Stage is load-bearing.** A sample fed at the wrong stage measures nothing — or worse, measures a
 *different* vector and flatters the result. Content that really arrives as tool output must be
