@@ -1,0 +1,50 @@
+{
+  "_README": "Copy this file to results/<yourproduct>-<version>.json. The `corpora` and `overall` blocks are produced for you by `node scorers/run.mjs --adapter <yours> --corpus all --json` — paste them in verbatim, do not hand-edit them. Everything in `product` is yours to fill in, and a PR that leaves a REQUIRED field blank will be asked to complete it before review. Delete this key.",
+
+  "schema": "agentic-security-benchmark/result@1",
+
+  "product": {
+    "name": "REQUIRED — product name as a buyer would see it",
+    "version": "REQUIRED — exact version or build tested. Not 'latest'.",
+    "vendor": "REQUIRED",
+    "repo": "optional — link to source, if any",
+    "license": "optional",
+    "sourceCommit": "optional but preferred — the commit the tested build came from",
+
+    "runBy": "REQUIRED — who executed this run",
+    "conflictOfInterest": "REQUIRED — 'I am the vendor' is a perfectly acceptable answer. Saying nothing is not. No result in this directory is an independent test and none is presented as one.",
+    "command": "REQUIRED — the exact command, so somebody else can repeat it",
+
+    "modelRefusalBaseline": {
+      "ran": false,
+      "model": "e.g. llama3:latest, 8B — or null if not run",
+      "runsPerFamily": null,
+      "note": "REQUIRED. A detection rate that has NOT subtracted what the underlying model refuses unaided is not comparable to one that has, because it silently credits the product with every attack the model would have declined on its own. If you did not run a baseline, say so plainly here and describe your recall as a RAW detection rate rather than as the product's contribution. If you did, state the model, the number of runs per family, and give gap coverage alongside raw recall. See ../AMTSO.md section 3."
+    },
+
+    "lockedHeldOutSplit": {
+      "kept": false,
+      "note": "REQUIRED. Did you keep a held-out split your detection work never opened? A number measured on a corpus you tuned against describes memorisation, not generalisation. If any corpus here was used to develop your rules, say which — see ../METHODOLOGY.md section 2."
+    },
+
+    "knownDeviations": [
+      "OPTIONAL but strongly encouraged. Anywhere your adapter does not exercise the product the way a real deployment does — a suppression rule you could not replicate, a hook you did not spawn, an enforcement policy you did not enable. State whether each deviation makes a number an upper or a lower bound. Reviewers trust a result with a deviations list more than one without."
+    ]
+  },
+
+  "harness": {
+    "_note": "Paste verbatim from the --json output. Do not edit."
+  },
+  "options": {
+    "_note": "Paste verbatim from the --json output. Do not edit."
+  },
+  "generatedAt": "Paste verbatim from the --json output.",
+  "corpora": [
+    {
+      "_note": "Paste verbatim from the --json output. One entry per corpus you ran. Partial runs are fine and are more honest than a padded total — just say which corpora you ran. Recall and false positives stay on separate lines; never merge them into a single blended score."
+    }
+  ],
+  "overall": {
+    "_note": "Paste verbatim from the --json output. It carries the full AMTSO outcome distribution — prevented, detected-not-prevented, model-refusal, model-recognition, missed, inconclusive — plus this harness's seventh bucket, not-applicable, for samples whose harness your adapter does not implement. not-applicable rows are excluded from every rate; that is the point of the bucket. Do not delete the zeros: a bucket printed as zero was measured-as-absent, and a bucket omitted is a bucket a reader has to assume about."
+  }
+}

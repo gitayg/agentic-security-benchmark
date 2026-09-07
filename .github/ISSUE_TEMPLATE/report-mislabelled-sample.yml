@@ -1,0 +1,132 @@
+name: Report a mislabelled sample
+description: Argue that an existing sample carries the wrong label.
+title: "[relabel] "
+labels: ["corpus", "relabel", "needs-maintainer-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **A relabel changes published numbers.** Moving one sample from benign to attack, or the
+        reverse, changes the recall and false-positive rate of **every product already scored on
+        this benchmark**, including results submitted by other vendors and any result you have
+        published yourself. That is not a reason to avoid relabelling — a corpus that will not
+        correct itself is worse — but it is why this always needs maintainer (@gitayg) review and
+        why a relabel that lands is recorded in the sample and in the results history rather than
+        applied silently.
+
+        There is precedent, so do not be shy: the injection-tutorial pages in the web-content
+        corpus were originally benign controls and were reclassified as true positives, because an
+        agent reading a tutorial page cannot tell teaching material from an attack — the text is
+        identical either way. That relabel *raised* the measured false-positive burden of taking
+        the other view, and it was still the right call.
+
+        **Do not open this to dispute a score.** If your product does badly on a sample, that is a
+        result, not a labelling error. Relabel only if the label is wrong on its own terms.
+
+  - type: input
+    id: sample-id
+    attributes:
+      label: Sample id
+      description: The exact `id` of the sample you believe is mislabelled.
+      placeholder: wf-inj-003
+    validations:
+      required: true
+
+  - type: input
+    id: corpus-file
+    attributes:
+      label: Which corpus file is it in?
+      placeholder: benign-web-content-tune.json
+    validations:
+      required: true
+
+  - type: dropdown
+    id: current-label
+    attributes:
+      label: Current label
+      options:
+        - "attack (shouldDetect: true)"
+        - "benign (shouldDetect: false)"
+        - "benign (implied — benign-only corpus, no shouldDetect field)"
+        - "hard negative (hard_negative: true)"
+        - "not a label problem — a field other than the label is wrong"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: proposed-label
+    attributes:
+      label: Proposed label
+      options:
+        - "attack (shouldDetect: true)"
+        - "benign (shouldDetect: false)"
+        - "hard negative (hard_negative: true) — keep benign, add the flag"
+        - "ambiguous (ambiguous: true) — score it both ways rather than picking a side"
+        - "remove the sample entirely (it measures nothing either way)"
+        - "other — described below"
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence for the relabel
+      description: >-
+        Argue it on the sample's own terms, against the rule the label is supposed to satisfy.
+        For an attack → benign move: why the malicious outcome could NOT actually occur with the
+        product absent. For a benign → attack move: what the concrete reachable harm is. Cite the
+        specific text or payload, not the general vibe. If a published advisory, specification, or
+        agent-host behaviour settles it, link it.
+      placeholder: |
+        The sample is labelled benign, but the payload is a live directive, not a description of
+        one: the text contains a fully-resolved instruction naming a real capability and a
+        concrete destination, and an agent reading it has no way to know the author intended it
+        as an example. The malicious outcome is reachable with the product absent, so under the
+        validity rule this is a true positive and scoring it as a benign control understates the
+        detection rate of any product that correctly flags it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: numbers-impact
+    attributes:
+      label: What this does to the published numbers
+      description: >-
+        If you know how many samples this argument applies to — one, or a whole channel — say so.
+        A relabel that quietly generalises to forty samples is a different decision from a
+        one-sample correction, and reviewers need to know which one they are approving.
+      placeholder: >-
+        This argument applies to the 9 samples on the `prompt-injection-tutorial` channel, not
+        just this one. Applied to all 9 it moves them out of the FP denominator and into the
+        recall numerator.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: conflict-of-interest
+    attributes:
+      label: Conflict of interest
+      description: >-
+        Declare it plainly. A vendor arguing that a sample their product misses is invalid is a
+        legitimate argument, but reviewers must be able to see the incentive.
+      options:
+        - "none — I do not build or sell a product graded by this benchmark"
+        - "I build or sell a product graded by this benchmark"
+        - "my product's score changes if this relabel lands"
+        - "other — described in the evidence field"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: acknowledgement
+    attributes:
+      label: Acknowledgement
+      options:
+        - label: >-
+            I understand a relabel changes numbers already published for other products and
+            **always requires maintainer approval**.
+          required: true
+        - label: >-
+            I am arguing the label is wrong on its own terms, **not** that my product scores badly
+            on this sample.
+          required: true

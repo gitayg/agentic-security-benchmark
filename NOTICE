@@ -1,0 +1,21 @@
+Agentic Security Benchmark
+Copyright 2026 Itay Glick
+
+This product includes software and test corpora developed for the MoorAI agent
+(https://github.com/gitayg/moorai). The MoorAI agent itself is licensed under
+AGPL-3.0 and is a SEPARATE project. The corpora and harnesses in THIS repository
+are relicensed by their copyright holder under Apache-2.0, deliberately, so that
+any vendor — including a competitor — can run their own product through them.
+Nothing in this repository imposes AGPL obligations on a product under test.
+
+AMTSO is a trademark of the Anti-Malware Testing Standards Organization.
+AMTSO has not reviewed, certified or endorsed this benchmark, MoorAI, or any
+result published here. The "Guidelines for Testing of Agentic Security Products
+v1.0" are cited as published criteria that this benchmark grades against.
+
+OWASP is a registered trademark of the OWASP Foundation.
+ATT&CK and ATLAS are trademarks of The MITRE Corporation.
+
+The attack-family taxonomy referenced by the family-keyed corpora is HackAgent
+(https://github.com/AISecurityLab/hackagent); its family definitions are used as
+a labelling scheme for corpora authored here.

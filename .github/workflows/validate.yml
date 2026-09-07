@@ -1,0 +1,42 @@
+name: validate
+
+# The gate on every corpus change: the samples must be well-formed, uniquely identified,
+# justified by a validity statement, free of credential-shaped strings, and free of any leak
+# from a locked held-out split.
+#
+# This workflow deliberately needs no secrets and no network access beyond checkout and the
+# Node setup. The validator has zero dependencies and never installs anything, so a corpus PR
+# from a fork cannot execute third-party code in CI.
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: corpus integrity + harness smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # MEASURED, NOT ASSUMED: on Node 22 `node --test test/` does NOT work — the runner tries to
+      # resolve the directory as a module and dies with MODULE_NOT_FOUND before any test runs.
+      # Bare `node --test` applies Node's default test-file discovery (which matches
+      # test/validate-corpora.mjs) and is the form that actually runs the suite. Do not "tidy"
+      # this back into a directory argument without re-checking it on the pinned Node version.
+      - name: Corpus integrity (node:test, zero dependencies)
+        run: node --test
+
+      # Smoke run of the scoring harness against the built-in keyword adapter. This asserts the
+      # harness still starts, loads every corpus and produces JSON — it pins no score, because a
+      # workflow that asserts "recall >= X" turns every adapter change into a spurious failure
+      # while proving nothing.
+      - name: Harness smoke run
+        run: node scorers/run.mjs --adapter keyword --corpus all --json > /dev/null

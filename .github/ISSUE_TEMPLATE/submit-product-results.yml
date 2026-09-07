@@ -1,0 +1,215 @@
+name: Submit product results
+description: Submit results for your own agentic-security product, scored on this benchmark.
+title: "[results] "
+labels: ["results", "needs-maintainer-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Anyone may grade their own product on this benchmark and submit the numbers. Two rules
+        make submitted results worth reading.
+
+        **Results are never merged across products.** Your numbers stay on your own lines, with
+        your own adapter, your own corpora selection and your own command recorded next to them.
+        A blended leaderboard number across products measured on different subsets is not a
+        measurement.
+
+        **A detection rate that has not subtracted model refusals is not comparable.** Modern
+        models refuse a large fraction of a naive attack corpus on their own, with no security
+        product installed at all. Any figure that counts those refusals as product detections is
+        measuring the model, not the product. Run the model-refusal baseline and report it, or
+        say plainly that you did not — an honest "not run" is worth more than a headline number
+        nobody can interpret.
+
+        Submitting these results does **not** get them published automatically. Maintainer
+        (@gitayg) review is required.
+
+  - type: input
+    id: product-name
+    attributes:
+      label: Product name and vendor
+      placeholder: ExampleGuard, Example Security Inc.
+    validations:
+      required: true
+
+  - type: input
+    id: product-version
+    attributes:
+      label: Product version
+      description: The exact version tested. "latest" is not a version.
+      placeholder: 2.4.1 (build 8871)
+    validations:
+      required: true
+
+  - type: input
+    id: adapter
+    attributes:
+      label: Adapter module
+      description: >-
+        Link to the adapter that connects your product to the harness. It must be inspectable —
+        a result produced by an adapter nobody can read is not reproducible.
+      placeholder: https://github.com/example/exampleguard-benchmark-adapter/blob/main/adapter.mjs
+    validations:
+      required: true
+
+  - type: textarea
+    id: corpora-run
+    attributes:
+      label: Which corpora did you run?
+      description: >-
+        List them exactly. Partial runs are acceptable and common — a product that only covers
+        two vectors should say so rather than quietly scoring the two it is good at and
+        presenting it as a total.
+      placeholder: |
+        vector2-indirect-content.json  (45 attacks / 17 benign)
+        vector4-outbound-action.json   (57 attacks / 24 benign)
+        benign-corpus-v2.json          (610 benign)
+        NOT run: vector3, vector5 — the product has no MCP or memory surface.
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: The exact command you ran
+      description: >-
+        Verbatim, so a reviewer can reproduce it. Include the commit or tag of this repo. Wrap it
+        in a fenced code block.
+      placeholder: |
+        git checkout v0.3.0
+        node scorers/run.mjs --adapter ./exampleguard-adapter.mjs --corpus vector2,vector4 --json > results.json
+    validations:
+      required: true
+
+  - type: textarea
+    id: amtso-outcomes
+    attributes:
+      label: AMTSO outcome distribution
+      description: >-
+        Counts in every category, summing to the number of samples run. "Detected but not
+        prevented" and "prevented" are different products from the user's point of view, and
+        collapsing them is the most common way a result is overstated.
+      placeholder: |
+        prevented (blocked before effect):        61
+        detected, not prevented (alert only):     18
+        model refusal (model declined, not us):   14
+        model recognition (model flagged it):      5
+        missed:                                    4
+        inconclusive:                              0
+        --------------------------------------------
+        total attack samples run:                102
+    validations:
+      required: true
+
+  - type: input
+    id: recall
+    attributes:
+      label: Recall on the attack corpora you ran
+      description: >-
+        Give the numerator and denominator, not just a percentage, and say whether model refusals
+        were subtracted.
+      placeholder: 79/102 = 77.5% (model refusals subtracted; 93/102 = 91.2% if counted)
+    validations:
+      required: true
+
+  - type: input
+    id: false-positive-rate
+    attributes:
+      label: False-positive rate on the benign corpora you ran
+      description: >-
+        Numerator and denominator. A recall figure with no FP rate beside it is not a result —
+        any detector reaches 100% recall by alerting on everything.
+      placeholder: 11/651 = 1.7% (3.4% over the hard-negative slice alone)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: refusal-baseline-run
+    attributes:
+      label: Did you run a model-refusal baseline?
+      description: >-
+        The baseline is the same corpora replayed with your product **disabled**, measuring how
+        much the underlying model refuses on its own. Without it, your detection rate includes
+        work your product did not do.
+      options:
+        - "yes — baseline run, and refusals are subtracted from the recall above"
+        - "yes — baseline run, but the recall above does NOT subtract refusals"
+        - "no — not run (the numbers above are therefore not comparable to a baselined result)"
+    validations:
+      required: true
+
+  - type: input
+    id: refusal-baseline-model
+    attributes:
+      label: Which model was the refusal baseline run against?
+      description: >-
+        Exact model and version. Refusal rates differ enormously between models and between
+        versions of the same model, so a baseline without a named model cannot be compared to
+        anything. Write "not run" if you answered "no" above.
+      placeholder: claude-sonnet-4-5-20250929, default system prompt, temperature 0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: locked-split
+    attributes:
+      label: Did you keep your own locked held-out split?
+      description: >-
+        The published corpora are the tune half. If you tuned against everything you were given
+        and then reported the score on it, you have measured memorisation. Keeping your own
+        locked split — generated deterministically, never inspected during tuning — is the only
+        way your generalisation claim means anything.
+      options:
+        - "yes — I kept a locked split and the numbers above are from it"
+        - "yes — I kept a locked split, but the numbers above are from the tune half"
+        - "no — I did not keep a locked split (these numbers may reflect tuning, not generalisation)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: conflicts-of-interest
+    attributes:
+      label: Self-declared conflicts of interest
+      description: >-
+        State them plainly. Being the vendor is not disqualifying — vendors grading themselves is
+        the intended use of this benchmark. Concealing it is the problem.
+      placeholder: |
+        I am the vendor. I am employed by Example Security Inc. and work on the product tested.
+        No part of the corpora was authored by anyone at Example Security Inc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: caveats
+    attributes:
+      label: What you could NOT measure
+      description: >-
+        The most valuable field on this form. Vectors you skipped, harnesses your adapter cannot
+        reach, samples that came back inconclusive and why, anything you had to configure
+        specially. A result with an honest limitations list is more useful than a cleaner one
+        without.
+      placeholder: |
+        - The `events` harness is unreachable: our product has no agent-event telemetry, so all
+          vector-5 event samples returned inconclusive rather than missed.
+        - Write/Edit action samples were scored but our hook is not registered for those tools in
+          a default install, so a "caught" there is not reachable in production.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: acknowledgement
+    attributes:
+      label: Acknowledgement
+      options:
+        - label: >-
+            These numbers were produced by the command above against the published corpora, with
+            no per-sample tuning after seeing the score.
+          required: true
+        - label: >-
+            I understand results are published on my product's own lines, **never merged** with
+            other products' results, and that maintainer approval is required.
+          required: true
+        - label: >-
+            I did not request, receive, or use any locked held-out split, and I understand it is
+            not available to anyone outside the project.
+          required: true

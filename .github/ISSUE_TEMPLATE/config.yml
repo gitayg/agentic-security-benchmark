@@ -1,0 +1,20 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Read CONTRIBUTING.md first
+    url: https://github.com/gitayg/agentic-security-benchmark/blob/main/CONTRIBUTING.md
+    about: >-
+      What gets accepted, the validity rule every sample must satisfy, the
+      content-free / no-real-credentials rule, and why additions to a locked
+      held-out split are not accepted from outside. Every addition requires
+      maintainer approval.
+  - name: Question about the AMTSO grading criteria
+    url: https://github.com/gitayg/agentic-security-benchmark/blob/main/AMTSO.md
+    about: >-
+      How the six AMTSO attack vectors and the outcome categories
+      (prevented / detected-not-prevented / model refusal / model recognition /
+      missed / inconclusive) map onto this benchmark.
+  - name: Question about how a number was produced
+    url: https://github.com/gitayg/agentic-security-benchmark/blob/main/METHODOLOGY.md
+    about: >-
+      The scoring rules, the model-refusal baseline, and the locked split.
+      Read this before opening an issue disputing a published result.

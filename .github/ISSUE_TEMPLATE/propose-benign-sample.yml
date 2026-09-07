@@ -1,0 +1,189 @@
+name: Propose a benign sample
+description: Propose a new benign control — the precision half of the measurement.
+title: "[benign sample] "
+labels: ["corpus", "benign-sample", "needs-maintainer-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Benign samples are not filler. False positives are what make people disable a security
+        tool, so the benign corpora are the denominator that decides whether a recall number
+        means anything. A benign corpus made of harmless lorem ipsum is free and measures
+        nothing — the samples that matter are the ones that sit directly on top of the detector
+        vocabulary and have to be told apart on **meaning**, not on keywords.
+
+        **The validity rule applies here too, mirrored.** An attack sample counts only if the
+        harm could really happen with the product absent. A benign sample counts only if a
+        product firing on it would be a **genuine false positive** — legitimate work an engineer
+        really does, not an attack in a thin disguise.
+
+        **Locked splits are closed.** The `test` half of the web-content benign corpus is
+        deliberately withheld and is **not open to outside additions**. See CONTRIBUTING.md.
+
+        **Every addition requires maintainer (@gitayg) approval.**
+
+  - type: input
+    id: sample-id
+    attributes:
+      label: Proposed sample id
+      description: Must be unique across the whole benchmark, not just within one file.
+      placeholder: v2-benign-018
+    validations:
+      required: true
+
+  - type: dropdown
+    id: target-corpus
+    attributes:
+      label: Which corpus does this belong in?
+      options:
+        - benign-corpus-v2.json (general benign developer/agent prompts)
+        - benign-web-content-tune.json (inbound web content an agent would fetch)
+        - vector2-indirect-content.json (benign[] controls)
+        - vector3-supply-chain.json (benign[] controls)
+        - vector4-outbound-action.json (benign[] controls)
+        - vector5-memory-crossagent.json (benign[] controls)
+        - heldout-v2-tune.json (benign[] of the tune half)
+    validations:
+      required: true
+
+  - type: textarea
+    id: payload
+    attributes:
+      label: The sample text or action payload
+      description: >-
+        For a text harness, paste the exact content. For an action harness, paste the resolved
+        `{tool_name, tool_input}` — a real, legitimate tool call an agent is routinely asked to
+        make. Wrap it in a fenced code block.
+      placeholder: |
+        {
+          "tool_name": "Bash",
+          "tool_input": { "command": "npm test -- --runInBand" }
+        }
+    validations:
+      required: true
+
+  - type: dropdown
+    id: hard-negative
+    attributes:
+      label: Is this a hard negative?
+      description: >-
+        A hard negative is benign text deliberately SHAPED like an attack — the samples that
+        actually decide the false-positive rate. Answer honestly; mislabelling a plain sample as
+        a hard negative inflates the apparent difficulty of the corpus.
+      options:
+        - "yes — this is benign text shaped like an attack"
+        - "no — this is ordinary benign work"
+    validations:
+      required: true
+
+  - type: input
+    id: twin-of
+    attributes:
+      label: twin_of (required if you answered "yes" above)
+      description: >-
+        The attack sample or detector concept this is the benign twin of. This is what makes a
+        future false positive diagnosable in one line instead of an investigation. Leave blank
+        only if this is not a hard negative.
+      placeholder: v4-webhook-003
+    validations:
+      required: false
+
+  - type: textarea
+    id: validity
+    attributes:
+      label: >-
+        Validity statement — why a product firing on this would be a GENUINE false positive
+      description: >-
+        Say why this is legitimate work rather than a disguised attack: who does it, why, and how
+        often. If it is a hard negative, name the specific feature that makes it look like an
+        attack and the specific fact that makes it benign anyway. A sample that a careful reviewer
+        would call ambiguous should be declared ambiguous rather than argued into the benign set.
+      placeholder: >-
+        Reads like an exploit because it shows a raw SQL-injection payload in a request, but it is
+        a published CVE advisory whose remediation guidance a developer legitimately needs to
+        fetch. A tool that fires when you read a security advisory is a tool people mute, so
+        alerting here is a false positive, not a catch.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: harness
+    attributes:
+      label: Harness
+      options:
+        - text (a single string of content)
+        - action (a resolved tool call — {tool_name, tool_input})
+        - steps (an ordered steps[] array)
+        - session (a multi-turn turns[] conversation)
+        - events (a shape in the agent event graph)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Stage the sample is reachable at
+      options:
+        - prompt (inlined into a turn by the agent host)
+        - file (read off disk with a tool call)
+        - output (arrives as the RESULT of a fetch or an MCP call)
+        - index (retrieved from a local knowledge base / vector store)
+        - tool (tool metadata, e.g. an MCP tools/list descriptor)
+        - not applicable (events harness)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ambiguous
+    attributes:
+      label: Is this sample ambiguous?
+      description: >-
+        Some benign samples are genuinely contested — benign meta-discussion of attacks is the
+        classic case. Declaring it lets the scorer report the false-positive rate both including
+        and excluding the ambiguous slice, instead of hiding the disagreement.
+      options:
+        - "no — a careful reviewer would agree this is benign"
+        - "yes — reasonable people may disagree, score it both ways"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: content-safety
+    attributes:
+      label: Content and licensing attestation
+      description: All four are required.
+      options:
+        - label: >-
+            This sample contains **no real credentials, tokens, keys or secrets** of any kind —
+            mine, my employer's, or anyone else's.
+          required: true
+        - label: >-
+            Any credential-shaped string is a **well-known public documentation placeholder**. I
+            understand new secret-shaped strings fail CI and must be allowlisted deliberately,
+            because such fixtures trip GitHub push protection and block pushes for everyone.
+          required: true
+        - label: >-
+            This is **not real captured traffic or a real document** and contains no real person's,
+            customer's or organisation's data.
+          required: true
+        - label: >-
+            I have the right to contribute this sample and I license it under **Apache-2.0**.
+          required: true
+
+  - type: checkboxes
+    id: locked-split
+    attributes:
+      label: Locked split
+      options:
+        - label: >-
+            I understand that **additions to a locked held-out split are not accepted**, and that
+            I am not proposing one.
+          required: true
+
+  - type: textarea
+    id: anything-else
+    attributes:
+      label: Anything else
+      description: Optional.
+    validations:
+      required: false

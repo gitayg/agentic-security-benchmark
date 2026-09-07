@@ -1,0 +1,50 @@
+# Dependencies. The validator and the harness have zero runtime dependencies by design, so this
+# directory should stay empty in practice — a corpus PR from a fork must not be able to execute
+# third-party code in CI.
+node_modules/
+.pnp
+.pnp.js
+package-lock.json.bak
+
+# macOS / editor noise
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# Coverage and test runner output
+coverage/
+.nyc_output/
+*.lcov
+lcov.info
+
+# Scratch output. Score runs, adapter dumps and ad-hoc analysis do not belong in the repo —
+# published numbers go through results/ and a reviewed PR, never as a stray file.
+scratch/
+tmp/
+out/
+*.out.json
+*.scratch.json
+results-*.json
+score-*.json
+
+# LOCKED HELD-OUT SPLITS. These must never be committed: the entire value of a held-out split is
+# that nobody has tuned against it, the maintainer included. Publishing one retroactively
+# invalidates every generalisation claim built on it. Keeping your own locked split is expected —
+# keeping it OUT of this repository is the point. test/validate-corpora.mjs additionally fails on
+# any `split: "test"` row or lock-shaped top-level key that reaches the corpora directory.
+*heldout*-test.json
+*-heldout-test.json
+corpora/**/*test-split*.json
+locked/

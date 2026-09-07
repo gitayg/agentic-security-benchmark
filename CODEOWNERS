@@ -1,0 +1,34 @@
+# Code owners for the agentic security benchmark.
+#
+# Every path is owned, so every pull request requires review. This is deliberate: the corpora and
+# the scoring rules are the entire product here, and a benchmark whose samples or scoring can
+# change without review is not a benchmark anyone should cite.
+#
+# Enable "Require review from Code Owners" in the branch protection rules for this to be enforced
+# rather than advisory.
+
+# Default owner for anything not matched below.
+*                       @gitayg
+
+# The corpora. Adding, removing or relabelling a sample changes numbers already published for
+# every product scored on this benchmark, including other vendors' submitted results.
+/corpora/               @gitayg
+
+# The scoring harness and adapters. A change here silently re-prices every published result.
+/scorers/               @gitayg
+
+# Published results. Never merged across products; each product's numbers stay on its own lines.
+/results/               @gitayg
+
+# Contribution workflow, issue forms, PR template and CI. The validator in test/ is the gate that
+# keeps locked splits and credential-shaped strings out of the tree.
+/.github/               @gitayg
+/test/                  @gitayg
+
+# Top-level documentation: the methodology, the AMTSO mapping, and the contribution rules are
+# load-bearing claims, not prose.
+/*.md                   @gitayg
+/CODEOWNERS             @gitayg
+/LICENSE                @gitayg
+/NOTICE                 @gitayg
+/package.json           @gitayg
