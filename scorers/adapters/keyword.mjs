@@ -5,10 +5,10 @@
 // which is exactly what a keyword list does in the real world. It is a REFERENCE POINT, not a
 // baseline anyone should ship — a product that does not beat it on BOTH axes is not adding anything.
 //
-// It declares only `capabilities.text`, which also makes it the worked example of the two contract
-// escape hatches:
-//   * `session` and `events` samples come back NOT-APPLICABLE (never "missed");
-//   * `action` samples are scored DEGRADED, through the flattened-tool-call text fallback.
+// It declares only `capabilities.text`, which also makes it the worked example of the contract's one
+// escape hatch: every `session`, `events` and `action` sample comes back NOT-APPLICABLE — excluded
+// from both the numerator and the denominator of every rate, never counted as "missed". That is 109
+// of the 1161 samples, and its attack denominator is 211 rather than 286 as a result.
 //
 // Enforcement actions are attached per rule so the AMTSO prevented / detected-only split is real:
 // the two rules that describe an outbound movement of secrets say "block", the rest say "notify" or
@@ -49,7 +49,7 @@ const RULES = [
 export default {
   name: "keyword",
   version: "1.0.0",
-  // TEXT ONLY, on purpose. See the header: this is what makes not-applicable and degraded observable.
+  // TEXT ONLY, on purpose. See the header: this is what makes `not-applicable` observable.
   capabilities: { text: true, action: false, session: false, events: false },
 
   // `stage` is accepted and deliberately IGNORED: a keyword list has no notion of where content came

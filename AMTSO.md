@@ -318,29 +318,37 @@ A worked example of the shape. These are **real measured values**, not illustrat
 repository, and the full file is [`./results/keyword-baseline.json`](./results/keyword-baseline.json):
 
 ```
-attacks 268   benign 865   not-applicable 28   inconclusive 0
+attacks 211   benign 841   not-applicable 109   inconclusive 0
 
 AMTSO outcome distribution
-  prevented                    11
-    of which hard-deny (block/kill)   11
+  prevented                     2
+    of which hard-deny (block/kill)    2
     the rest are justify → halted for human sign-off
-  detected-not-prevented      101
+  detected-not-prevented       83
   model-refusal                 0    measured-as-absent: no model in this loop
   model-recognition             0    measured-as-absent: no model in this loop
-  missed                      156
+  missed                      126
   inconclusive                  0    excluded from every rate
-  not-applicable               28    harness not implemented by this adapter — excluded from
+  not-applicable              109    harness not implemented by this adapter — excluded from
                                      every rate (local extension, NOT an AMTSO outcome)
 
-recall                     41.8%   112/268
-false-positive rate         5.3%    46/865
+recall                     40.3%   85/211
+false-positive rate         5.0%    42/841
 ```
 
 Note what the `not-applicable` line does to the denominators. The full corpus set holds 286 attacks
-and 875 benign samples, but this adapter reads text only — so the vector-5 event-graph and session
-samples were never put to it, and they are excluded rather than counted against it. The attack
-denominator is 268, not 286. An adapter that implements every harness, such as
-[`null-floor.json`](./results/null-floor.json), scores against the full 286.
+and 875 benign samples, but this adapter implements `scanText` and nothing else — so the 28 vector-5
+event-graph and session samples and the 81 vector-4 action samples were never put to it, and they are
+excluded rather than counted against it. The attack denominator is 211, not 286. An adapter that
+implements every harness, such as [`null-floor.json`](./results/null-floor.json), scores against the
+full 286.
+
+That 109 is the whole argument for the bucket. An earlier version of this harness scored the 81
+action samples by flattening each tool call to text and feeding it to `scanText`, which produced
+"27/57 caught" for this adapter and a headline recall of 41.8% instead of 40.3%. The number was not
+wrong arithmetic; it was an answer to a different question. A vector-4 sample is a resolved action,
+and only a surface that sees tool calls can stop one. `not-applicable` and a smaller denominator say
+"we did not measure this", which is what actually happened.
 
 Two things about that table are deliberate and should be copied.
 

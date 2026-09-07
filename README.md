@@ -114,13 +114,13 @@ adapter loads a model, opens a socket, or checks that an external checkout is pr
 Optional `scanAction`, `scanSession` and `scanEvents` unlock the action-, sequence- and event-graph
 samples. **You are not penalised for omitting them.** Samples whose harness you do not implement land
 in a `not-applicable` bucket and are excluded from every rate — a text-only product does not appear to
-have *missed* fifteen event-graph samples it was never shown. The one exception is `action`: if you
-have `scanText` but no `scanAction`, those samples are scored against a deterministic flattening of
-the tool call and every such row is marked `degraded: true`, so a reader can tell a text scan from
-action enforcement.
+have *missed* fifteen event-graph samples it was never shown. There is no exception and there used to
+be one: `action` samples were scored against a text flattening of the tool call, which measured a text
+scanner rather than an action surface. That fallback is gone, so a `keyword`-style adapter now scores
+81 `not-applicable` rows on vector 4 and a smaller denominator, rather than a proxy number.
 
-Details in [`scorers/README.md`](./scorers/README.md) — including the exact flattening format and the
-right-reason rules. Adding your results: [`results/README.md`](./results/README.md).
+Details in [`scorers/README.md`](./scorers/README.md) — including the right-reason rules. Adding your
+results: [`results/README.md`](./results/README.md).
 
 ---
 
@@ -171,12 +171,14 @@ and model-free by design, so `model-refusal` and `model-recognition` are reporte
 measured-as-absent zeros. Every recall figure in `results/` is therefore a **raw detection rate**, not
 a marginal contribution — including MoorAI's.
 
-**Vector 4 is scored against a text flattening, not a real action surface.** 81 rows in every result
-here are marked `degraded: true` because no bundled adapter implements `scanAction`. Driving MoorAI's
-real enforcement hook over the same 57 attacks stops 18 of them at the same posture, against 20
-"prevented" from this harness — close, but the two are not the same measurement, and the *detection*
-figure has no hook analogue at all. Numbers and method in
-[`scorers/README.md`](./scorers/README.md#actions-vector-4--still-degraded-and-here-is-what-it-costs).
+**Vector 4 is measured against the real action surface — for one adapter.** The `moorai` adapter
+implements `scanAction` by spawning the product's actual PreToolUse hook as a subprocess against a
+sandboxed `HOME`, and it agrees with the product's own hook-driving scorer sample-for-sample: 18/57
+stopped and 1/24 benign false positive on both sides, the same missed ids, residual divergence zero.
+The `keyword` adapter implements no action surface, so its 81 vector-4 rows are `not-applicable` and
+excluded from its rates. What is still *not* measured: prevention is scored at the out-of-the-box
+posture, and an enforcing tenant policy takes the same hook from 18/57 to 43/57. Numbers and method in
+[`scorers/README.md`](./scorers/README.md#actions-vector-4--reconciled-against-the-real-hook).
 
 **Two of the seven corpora are half a corpus.** The locked test halves are withheld on purpose. See
 below.

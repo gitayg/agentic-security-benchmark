@@ -8,7 +8,7 @@
 // finding ids, enforcement actions and booleans. It NEVER carries a sample's text, a resolved command,
 // or an adapter's message. That is not a stylistic choice: the corpora contain live-looking attack
 // payloads, and a report that quoted them could not be pasted into a ticket.
-import { normalizeFindings, flattenAction, HARNESS_CAPABILITY, AdapterError } from "./adapter.mjs";
+import { normalizeFindings, HARNESS_CAPABILITY, AdapterError } from "./adapter.mjs";
 import {
   AMTSO_OUTCOMES, policyActionFor, amtsoOutcomeFor, isPreventive, isHardPreventive
 } from "./amtso.mjs";
@@ -66,7 +66,6 @@ export async function evalSample(adapter, s, opts = {}) {
     hardNegative: s.hardNegative,
     expected,                 // ids the corpus expects, or null
     notApplicable: false,     // the adapter does not implement this harness at all
-    degraded: false,          // scored through the action -> text fallback
     detected: false,
     anyStepDetected: false,
     firedIds: [],
@@ -85,15 +84,14 @@ export async function evalSample(adapter, s, opts = {}) {
   }
 
   // NOT-APPLICABLE. The adapter never implemented this harness, so nothing was measured about it.
-  // The one exception is `action`, which degrades to a text scan of a flattened tool call.
-  const canDegrade = s.harness === "action" && !adapter.capabilities.action && adapter.capabilities.text;
-  if (!adapter.capabilities[cap] && !canDegrade) {
+  // No exceptions: an `action` sample against an adapter with no scanAction lands here too, rather
+  // than being scored against a text proxy of the tool call (see adapter.mjs, HARNESS_CAPABILITY).
+  if (!adapter.capabilities[cap]) {
     row.notApplicable = true;
     row.outcome = "NA";
     row.amtso = AMTSO_OUTCOMES.NOT_APPLICABLE;
     return row;
   }
-  row.degraded = canDegrade;
 
   const budget = opts.timeoutMs;
   const scanText = (text, stage) =>
@@ -114,14 +112,18 @@ export async function evalSample(adapter, s, opts = {}) {
       applySingle(row, findings, s);
     } else if (s.harness === "action") {
       const acts = s.actions || [];
+      const ci = s.consumeAction ?? acts.length - 1;
       const per = [];
-      for (const a of acts) {
-        const raw = row.degraded
-          ? await scanText(flattenAction(a), "prompt")
-          : await withBudget(Promise.resolve().then(() => impl.scanAction(a)), budget, "scanAction");
-        per.push(normalizeFindings(raw, `${adapter.name}.${row.degraded ? "scanText" : "scanAction"}(${s.id})`));
+      for (let i = 0; i < acts.length; i++) {
+        // ctx is the second, OPTIONAL argument of scanAction. A chain of tool calls is one episode,
+        // and a product whose action surface carries session state (a hook, an EDR agent) has to be
+        // able to tie the steps together — a per-step-independent call would measure a different
+        // product. It is content-free: an id, a position and a boolean, nothing from the payload.
+        const ctx = { sessionId: s.id, index: i, of: acts.length, consume: i === ci };
+        const raw = await withBudget(Promise.resolve().then(() => impl.scanAction(acts[i], ctx)), budget, "scanAction");
+        per.push(normalizeFindings(raw, `${adapter.name}.scanAction(${s.id})`));
       }
-      applySequence(row, per, s.consumeAction ?? per.length - 1, s, acts.map((a) => String(a?.tool_name ?? "")));
+      applySequence(row, per, ci, s, acts.map((a) => String(a?.tool_name ?? "")));
     } else {
       // "text" and "steps" share the scan path; a "text" sample is a one-step sequence.
       const steps = s.steps || [{ role: "consume", stage: s.stage, text: s.text ?? "" }];
@@ -282,8 +284,7 @@ export function score(rows) {
       tp, fn, fp, tn,
       notApplicable: na, inconclusive: inc,
       notApplicableAttacks: naAttacks, notApplicableBenign: naBenign,
-      inconclusiveAttacks: incAttacks, inconclusiveBenign: incBenign,
-      degraded: rows.filter((r) => r.degraded).length
+      inconclusiveAttacks: incAttacks, inconclusiveBenign: incBenign
     },
     // Headline. Denominator = applicable, conclusive attacks only.
     recall: attacks ? tp / attacks : 0,
@@ -318,7 +319,7 @@ export function score(rows) {
     byStage: groupBy(rows, "stage"),
     byChannel: groupBy(rows.filter((r) => r.channel), "channel"),
     misses: rows.filter((r) => r.outcome === "FN")
-      .map((r) => ({ id: r.id, subTechnique: r.subTechnique, harness: r.harness, stage: r.stage, anyStepDetected: r.anyStepDetected, degraded: r.degraded })),
+      .map((r) => ({ id: r.id, subTechnique: r.subTechnique, harness: r.harness, stage: r.stage, anyStepDetected: r.anyStepDetected })),
     falsePositives: rows.filter((r) => r.outcome === "FP")
       .map((r) => ({ id: r.id, subTechnique: r.subTechnique, harness: r.harness, stage: r.stage, firedIds: r.firedIds, action: r.action, hardNegative: r.hardNegative })),
     inconclusiveRows: rows.filter((r) => r.outcome === "INC")
@@ -331,13 +332,13 @@ export function score(rows) {
 // Roll several per-corpus scores into one overall line. Sums the confusion cells and re-derives every
 // rate from the sums — never averages rates, which would weight a 42-sample corpus like a 610-sample one.
 export function aggregate(perCorpus) {
-  const z = { tp: 0, fn: 0, fp: 0, tn: 0, na: 0, inc: 0, incAttacks: 0, naAttacks: 0, degraded: 0, samples: 0 };
+  const z = { tp: 0, fn: 0, fp: 0, tn: 0, na: 0, inc: 0, incAttacks: 0, naAttacks: 0, samples: 0 };
   const a = { prevented: 0, detectedNotPrevented: 0, missed: 0, inconclusive: 0, notApplicable: 0, preventedHard: 0 };
   for (const s of perCorpus) {
     z.tp += s.totals.tp; z.fn += s.totals.fn; z.fp += s.totals.fp; z.tn += s.totals.tn;
     z.na += s.totals.notApplicable; z.inc += s.totals.inconclusive;
     z.incAttacks += s.totals.inconclusiveAttacks; z.naAttacks += s.totals.notApplicableAttacks;
-    z.degraded += s.totals.degraded; z.samples += s.totals.samples;
+    z.samples += s.totals.samples;
     for (const k of Object.keys(a)) a[k] += s.amtso[k];
   }
   const attacks = z.tp + z.fn, benign = z.fp + z.tn;
@@ -345,7 +346,7 @@ export function aggregate(perCorpus) {
     totals: {
       samples: z.samples, attacks, benign, tp: z.tp, fn: z.fn, fp: z.fp, tn: z.tn,
       notApplicable: z.na, inconclusive: z.inc,
-      notApplicableAttacks: z.naAttacks, inconclusiveAttacks: z.incAttacks, degraded: z.degraded
+      notApplicableAttacks: z.naAttacks, inconclusiveAttacks: z.incAttacks
     },
     recall: attacks ? z.tp / attacks : 0,
     recallInconclusiveAsMiss: attacks + z.incAttacks ? z.tp / (attacks + z.incAttacks) : 0,

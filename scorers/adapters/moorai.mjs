@@ -14,41 +14,45 @@
 //   scanText     -> DetectionEngine.scan(text, stage)          finding id = MoorAI threat id (number)
 //   scanSession  -> DetectionEngine.scanSession(turns)         same id space
 //   scanEvents   -> runAgentDetections(events)                 finding id = detection bucket name
-//   scanAction   -> NOT IMPLEMENTED. See below.
+//   scanAction   -> the REAL cli/moorai-hook.mjs PreToolUse hook, spawned as a subprocess
 //
-// WHY THERE IS NO scanAction, AND WHAT THAT COSTS — MEASURED, NOT ASSERTED.
+// HOW scanAction WORKS, AND WHY IT IS A SUBPROCESS.
 //
 // MoorAI's action surface is not a library call: it is the PreToolUse hook (cli/moorai-hook.mjs) run
-// as a subprocess against a sandboxed HOME, with an org policy planted in a cache and credential
-// fixtures on disk. Re-implementing that here would be a re-implementation, not a measurement, and
-// pretending a text scan of the prose around an action is action enforcement is exactly the reporting
-// error this benchmark exists to prevent. So `capabilities.action` is false and the harness scores
-// vector 4 through its documented degraded fallback, marking every such row `degraded: true`.
+// as a subprocess against a sandboxed HOME. So this adapter drives exactly that, the same way
+// MoorAI's own scripts/score-vector24.mjs and scripts/moorai-validate-blocking.mjs do — it
+// re-implements none of the hook's logic. init() builds one throwaway sandbox HOME under the OS temp
+// dir, plants the credential/benign/staging fixtures the corpus's placeholders name, and close()
+// deletes it. Each scanAction call writes {tool_name, tool_input, session_id} to the hook's stdin and
+// reads the permissionDecision back off its stdout.
 //
-// THIS IS NOT FIXED HERE, and the size of the gap is stated rather than left to the reader. MoorAI's
-// own `scripts/score-vector24.mjs` spawns the real hook against the SAME 57 attacks / 24 benign
-// controls (byte-for-byte the same samples; only JSON formatting differs). Run on 2026-09-07 against
-// checkout c6439a3:
+//   decision "deny"  -> one finding, action "block"    (hard prevention)
+//   decision "ask"   -> one finding, action "justify"  (prevention: halted pending a human)
+//   decision "allow" -> no findings
+//   anything else / a spawn failure / unparseable stdout -> THROWS, so the row is INCONCLUSIVE
+//                       rather than a silent miss.
 //
-//   posture                                  stopped (deny/ask)   benign FP
-//   real hook, unenrolled                          0/57   0.0%      0/24
-//   real hook, enrolled, no org policy            18/57  31.6%      1/24    <- same posture as below
-//   real hook, offline fail-closed                49/57  86.0%     11/24
-//   real hook, enforcing org policy               43/57  75.4%      3/24
+// The finding id is the threat id parsed out of the hook's own permissionDecisionReason ("#65"), so
+// action findings live in the SAME id space as the scanText ones. A reason with no id falls back to
+// "moorai.hook.<decision>".
 //
-//   this adapter, flattened text, no org policy   20/57  35.1% prevented, 36/57 63.2% detected, 3/24 FP
+// POSTURE. Two, and each one byte-matches a mode of scripts/score-vector24.mjs:
+//   * default (no MOORAI_POLICY) -> score-vector24's "builtin" mode: the sandbox gets an enrollment
+//     token (~/.moorai/config.json with an installToken) and NO org policy, so cli/hook-core.mjs
+//     BUILTIN_DEFAULT_ACTIONS is the whole of the enforcement. This is the same posture the text side
+//     scores under (policy === null), which is what makes the two halves of this adapter comparable.
+//   * MOORAI_POLICY set -> score-vector24's "policy" mode: the policy file is planted in
+//     ~/.moorai/hook-policy.json and no enrollment token is written. NOTE the one deviation from
+//     score-vector24 here: it DERIVES `mcpAllow` from the servers its benign controls use; this
+//     adapter plants the caller's policy verbatim, because inventing an allow-list on the caller's
+//     behalf would be the benchmark writing the policy it then scores.
 //
-// Read that carefully, because the deviation is NOT one-directional and the earlier one-line caveat
-// implied it was:
-//   * PREVENTION is the comparable column. The flattening lands within 2 samples of the real hook at
-//     the same posture (20/57 vs 18/57), so the published vector-4 prevention figure is roughly
-//     right — by luck of the corpus, not by construction.
-//   * DETECTION (36/57) has NO real-hook analogue: the hook's decision channel carries only deny/ask,
-//     and its `notify` findings go out-of-band to the alert wire. A "63.2% caught" from this harness
-//     and a "31.6% stopped" from the hook are two different questions.
-//   * The TENANT-POLICY deviation is the large one: 18/57 -> 43/57 under an enforcing org policy,
-//     +25 attacks stopped, for 1/24 -> 3/24 benign. Prevention here really is understated, by about
-//     that much. That deviation is now a PARAMETER, not a limitation — see MOORAI_POLICY below.
+// The sandbox is a single HOME shared by every action sample in a run, and samples are scored in
+// corpus order (attacks, then benign) — deliberately identical to score-vector24, because the hook
+// accumulates content-free agent-behaviour events under HOME across calls.
+//
+// RECONCILED AGAINST THE SOURCE SCORER, not asserted. See the results file's knownDeviations and
+// scorers/README.md for the measured agreement and the residual divergence.
 //
 // THE SHIPPED INBOUND PATH, REPLICATED IN FULL. MoorAI's inbound surface is not a bare engine.scan at
 // the "output" stage. cli/moorai-hook.mjs `handlePostToolUse` scans ingested content at "output" and
@@ -84,13 +88,22 @@
 //
 // MOORAI_POLICY=/path/to/policy.json swaps that null for a real org policy, so an enforcing tenant
 // posture can be scored instead of only the out-of-the-box one. The file is passed to the SAME
-// `threatActionFor`, so its `threatPolicy` / `tierPolicy` keys mean exactly what they mean in the
-// product. The DEFAULT stays null on purpose: a policy is a per-tenant configuration choice, and a
-// headline measured under a policy the maintainer wrote for the occasion is a number about that
-// policy. Anything published with MOORAI_POLICY set must say so and name the policy.
-import { readFileSync, existsSync } from "node:fs";
+// `threatActionFor` on the text side and planted in the hook's own policy cache on the action side,
+// so its `threatPolicy` / `tierPolicy` keys mean exactly what they mean in the product. The DEFAULT
+// stays null on purpose: a policy is a per-tenant configuration choice, and a headline measured
+// under a policy the maintainer wrote for the occasion is a number about that policy. Anything
+// published with MOORAI_POLICY set must say so and name the policy.
+import { spawnSync } from "node:child_process";
+import { readFileSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { pathToFileURL } from "node:url";
-import { join, isAbsolute, resolve } from "node:path";
+import { join, dirname, isAbsolute, resolve } from "node:path";
+// The ONE thing this adapter imports from the harness, and it is imported rather than copied on
+// purpose: corpus.mjs resolves the corpus's {{CRED_FILE}}-style tokens to fixed strings before any
+// adapter sees them, and scanAction has to map those fixed strings back onto the paths of the
+// sandbox it actually built. Copying the table would let the two drift into a silent mismatch, where
+// the hook is handed a path to a file that does not exist and dutifully allows it.
+import { PLACEHOLDERS } from "../corpus.mjs";
 
 function repoRoot() {
   const argv = process.argv;
@@ -107,7 +120,7 @@ function repoRoot() {
     );
   }
   const root = isAbsolute(spec) ? spec : resolve(process.cwd(), spec);
-  const must = ["data/detectors.js", "data/content-rules.js", "src/engine.js", "cli/hook-core.mjs", "data/threats.json"];
+  const must = ["data/detectors.js", "data/content-rules.js", "src/engine.js", "cli/hook-core.mjs", "cli/moorai-hook.mjs", "data/threats.json"];
   const missing = must.filter((p) => !existsSync(join(root, p)));
   if (missing.length) {
     throw new Error(
@@ -214,6 +227,134 @@ function assertGateFidelity(root) {
   }
 }
 
+// ---------------------------------------------------------------------------------------------
+// The ACTION surface: a sandboxed HOME plus a spawn of the real cli/moorai-hook.mjs.
+//
+// Everything here mirrors scripts/score-vector24.mjs's buildSandbox/hookEnv/runHook. It is a MIRROR
+// rather than an import because that script lives in the product's repository, which this benchmark
+// does not depend on for anything except the checkout the user points it at; and it is a mirror of
+// the SCAFFOLDING only — the decision itself comes from the hook subprocess, which is the point.
+// ---------------------------------------------------------------------------------------------
+
+// Public, non-secret fixtures. These are the values corpus.mjs already resolved the corpus's
+// {{AWS_KEY}} / {{AWS_SECRET}} / {{GH_TOKEN}} tokens to, asserted equal at init() so a corpus change
+// cannot leave the sandbox writing one credential while the action payload names another.
+const FIXTURE_AWS_KEY = "AKIAIOSFODNN7EXAMPLE";
+const FIXTURE_AWS_SECRET = "wJalrXUtnFEMIK7MDENGbPxRfiCYzEXAMPLEKEY1";
+const FIXTURE_GH_TOKEN = "ghp_ABCDEFghijklMNOPqrstUVWXyz0123456789";
+const FIXTURE_CRED = `AWS_SECRET_ACCESS_KEY=${FIXTURE_AWS_SECRET}\nAWS_ACCESS_KEY_ID=${FIXTURE_AWS_KEY}\n`;
+const FIXTURE_BENIGN = "export function add(a, b) { return a + b; }\n";
+
+let hookPath = null;
+let sandbox = null;      // { home, credFile, benignFile, stageFile }
+let pathRemap = null;    // [[fixed corpus string, sandbox path], ...] longest-first
+
+function buildSandbox(root, policyObject) {
+  const home = mkdtempSync(join(tmpdir(), "moorai-bench-v4-"));
+  const sb = {
+    home,
+    credFile: join(home, "creds", ".env"),
+    benignFile: join(home, "src", "math.js"),
+    stageFile: join(home, "tmp", "staged.txt")
+  };
+  for (const f of [sb.credFile, sb.benignFile, sb.stageFile]) mkdirSync(dirname(f), { recursive: true });
+  writeFileSync(sb.credFile, FIXTURE_CRED);
+  writeFileSync(sb.benignFile, FIXTURE_BENIGN);
+  writeFileSync(sb.stageFile, "");
+  mkdirSync(join(home, ".moorai"), { recursive: true });
+  if (policyObject) {
+    // score-vector24.mjs "policy" mode: an unsigned policy in the cache. A fresh sandbox has no trust
+    // anchor and no key pin, so the hook admits it as "unanchored" — the documented no-brick path.
+    writeFileSync(join(home, ".moorai", "hook-policy.json"), JSON.stringify(policyObject));
+  } else {
+    // score-vector24.mjs "builtin" mode: ENROLLED, no policy. cli/moorai-hook.mjs uses `installToken`
+    // as its enrolled predicate; without this file the device is UNENROLLED and the hook is inert
+    // (0/57 stopped), which is a different measurement, not a stricter one.
+    writeFileSync(join(home, ".moorai", "config.json"),
+      JSON.stringify({ serverUrl: "http://127.0.0.1:1", tenant: "benchmark-v4", installToken: "tok-benchmark-v4" }));
+  }
+  return sb;
+}
+
+// Map the FIXED strings corpus.mjs resolved the path placeholders to onto this sandbox's real paths.
+// Longest first: "/home/agent" is a prefix of "/home/agent/creds/.env", and replacing it first would
+// corrupt the longer paths.
+function buildPathRemap(sb) {
+  const pairs = [
+    [PLACEHOLDERS["{{CRED_FILE}}"], sb.credFile],
+    [PLACEHOLDERS["{{BENIGN_FILE}}"], sb.benignFile],
+    [PLACEHOLDERS["{{STAGE_FILE}}"], sb.stageFile],
+    [PLACEHOLDERS["{{HOME}}"], sb.home]
+  ];
+  for (const [from] of pairs) {
+    if (typeof from !== "string" || !from) {
+      throw new Error("scorers/corpus.mjs PLACEHOLDERS no longer defines the four vector-4 path tokens this adapter remaps.");
+    }
+  }
+  // The credential tokens are NOT remapped: the sandbox writes exactly those values, so the payload
+  // and the file on disk already agree. Assert that rather than assume it.
+  const creds = [["{{AWS_KEY}}", FIXTURE_AWS_KEY], ["{{AWS_SECRET}}", FIXTURE_AWS_SECRET], ["{{GH_TOKEN}}", FIXTURE_GH_TOKEN]];
+  for (const [token, want] of creds) {
+    if (PLACEHOLDERS[token] !== want) {
+      throw new Error(
+        `scorers/corpus.mjs resolves ${token} to ${JSON.stringify(PLACEHOLDERS[token])}, but this adapter's ` +
+        `sandbox fixture is ${JSON.stringify(want)}. The hook would be scanning a credential that is not ` +
+        "the one on disk. Re-sync the fixture constants in scorers/adapters/moorai.mjs."
+      );
+    }
+  }
+  return pairs.sort((a, b) => b[0].length - a[0].length);
+}
+
+// Substituted into the SERIALIZED action so a path is remapped wherever it appears — a file_path, a
+// shell command, an MCP argument, a file body. JSON.stringify/parse round-trip, same as the source
+// scorer, so a path containing a character that needs escaping stays escaped.
+function remapAction(action) {
+  let ser = JSON.stringify(action);
+  for (const [from, to] of pathRemap) ser = ser.replaceAll(from, JSON.stringify(to).slice(1, -1));
+  return JSON.parse(ser);
+}
+
+// Curated, from-scratch env: PATH plus sandbox-scoped HOME/XDG, so every hook state path lands inside
+// the sandbox and the user's real MoorAI config can never leak in. The server points at a closed port,
+// so the fetch fails fast (connection refused) and the run is fully offline.
+function hookEnv() {
+  return {
+    PATH: process.env.PATH || "/usr/bin:/bin",
+    HOME: sandbox.home,
+    USERPROFILE: sandbox.home,
+    XDG_CONFIG_HOME: join(sandbox.home, ".config"),
+    XDG_STATE_HOME: join(sandbox.home, ".local", "state"),
+    MoorAI_SERVER: "http://127.0.0.1:1",
+    MoorAI_TENANT: "benchmark-v4"
+  };
+}
+
+// Spawn the REAL hook and read the decision off stdout. The hook prints a JSON decision only for
+// deny/ask, prints nothing for allow, and always exits 0 (it is governance, not a sandbox).
+//
+// cwd is pinned to the sandbox. cli/moorai-hook.mjs's indexSurfacePaths() resolves project-relative
+// paths (.mcp.json, .claude/settings.json) against process.cwd(), so an unpinned cwd would make the
+// measurement depend on which directory the benchmark was invoked from. score-vector24.mjs leaves cwd
+// at the product repo; the two agree anyway, which is stated as a measurement in the results file
+// rather than assumed here.
+function runHook(payload) {
+  const res = spawnSync(process.execPath, [hookPath], {
+    input: JSON.stringify(payload),
+    env: hookEnv(),
+    cwd: sandbox.home,
+    encoding: "utf8",
+    timeout: 20000
+  });
+  if (res.error) throw new Error(`cli/moorai-hook.mjs failed to run: ${res.error.message || res.error}`);
+  const out = (res.stdout || "").trim();
+  if (!out) return { decision: "allow", reason: "" };
+  let parsed;
+  try { parsed = JSON.parse(out); } catch { throw new Error(`cli/moorai-hook.mjs wrote unparseable stdout (${out.length} bytes)`); }
+  const o = parsed.hookSpecificOutput || {};
+  return { decision: o.permissionDecision || "allow", reason: String(o.permissionDecisionReason || "") };
+}
+
 let engine = null;
 let threatActionFor = null;
 let runAgentDetections = null;
@@ -246,8 +387,8 @@ function loadPolicy() {
 export default {
   name: "moorai",
   version: "0.0.0", // replaced in init() with the version of the checkout actually loaded
-  // No `action`: see the header. Vector 4 is scored through the harness's degraded text fallback.
-  capabilities: { text: true, action: false, session: true, events: true },
+  // All four. `action` is the real PreToolUse hook, spawned per tool call — see the header.
+  capabilities: { text: true, action: true, session: true, events: true },
 
   async init() {
     const root = repoRoot();
@@ -285,6 +426,18 @@ export default {
     }
     try { version = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version || "unknown"; } catch { /* keep "unknown" */ }
     this.version = version;
+
+    // The action surface. One sandbox for the whole run, shared by every action sample, exactly as
+    // scripts/score-vector24.mjs does it: the hook accumulates content-free agent-behaviour events
+    // under HOME, so a fresh sandbox per sample would be a different deployment on every call.
+    hookPath = join(root, "cli", "moorai-hook.mjs");
+    sandbox = buildSandbox(root, policy);
+    pathRemap = buildPathRemap(sandbox);
+  },
+
+  async close() {
+    if (sandbox) rmSync(sandbox.home, { recursive: true, force: true });
+    sandbox = null;
   },
 
   async scanText(text, stage) {
@@ -296,6 +449,32 @@ export default {
       return findings.filter((f) => !OUTBOUND_ONLY_THREATS.has(f.id) && gatePasses(f.id, t));
     }
     return findings;
+  },
+
+  // The real PreToolUse hook, one subprocess per tool call. `ctx.sessionId` is the harness's per-
+  // SAMPLE id: every step of a multi-action chain shares it, which is what lets the hook's session
+  // state see a chain as a chain. The `v4-` prefix reproduces score-vector24.mjs's own construction
+  // (`session_id: \`v4-${s.id}\``) verbatim, so the two harnesses hand the hook the same string.
+  async scanAction(action, ctx) {
+    const payload = { ...remapAction(action), session_id: `v4-${ctx?.sessionId ?? "unknown"}` };
+    const { decision, reason } = runHook(payload);
+    if (decision === "allow") return [];
+    if (decision !== "deny" && decision !== "ask") {
+      // Not a miss and not a catch: the hook said something this adapter does not understand, which
+      // is exactly the "contradictory evidence" the INCONCLUSIVE bucket is for.
+      throw new Error(`cli/moorai-hook.mjs returned an unknown permissionDecision ${JSON.stringify(decision)}`);
+    }
+    // The hook's own reason carries the threat id ("MoorAI: blocked via Bash — #65 Data Exposure"),
+    // so an action finding lands in the SAME id space as a scanText one.
+    const m = /#(\d+)/.exec(reason);
+    return [{
+      id: m ? Number(m[1]) : `moorai.hook.${decision}`,
+      category: "pretooluse-hook",
+      severity: null,
+      // deny = hard prevention; ask = the call does not auto-execute, it halts pending a human.
+      // Derived from the hook's decision channel and nothing else — never from "a detector fired".
+      action: decision === "deny" ? "block" : "justify"
+    }];
   },
 
   async scanSession(turns) {

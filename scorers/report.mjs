@@ -36,14 +36,13 @@ export function renderCorpus(entry, opts = {}) {
   } else {
     L.push(`  right-reason              ${pct(sc.rightReason.rate)}   ${sc.rightReason.count}/${sc.rightReason.of} caught for the id the corpus expected`);
   }
-  if (t.degraded) {
-    L.push(`  degraded rows             ${num(t.degraded)}      scored via the action -> flattened-text fallback, not a real action-surface integration`);
-  }
   L.push("");
   const a = sc.amtso;
   if (a.attacks === 0) {
     L.push(`  AMTSO outcome split       n/a   this corpus contains no attacks; it measures the false-positive budget only`);
-    if (a.notApplicable) L.push(`    not-applicable ${a.notApplicable} benign sample(s) — harness not implemented by this adapter`);
+    // Not "benign sample(s)": a corpus can reach this branch with attacks in it, if every attack was
+    // not-applicable and so left the conclusive denominator. Print the real split.
+    if (a.notApplicable) L.push(`    not-applicable ${a.notApplicable} sample(s) — ${t.notApplicableAttacks} attack(s), ${t.notApplicableBenign} benign — harness not implemented by this adapter`);
     return finishCorpus(L, sc, opts);
   }
   L.push("  AMTSO outcome split (attacks only)");
@@ -102,7 +101,7 @@ function finishCorpus(L, sc, opts) {
     L.push(`  misses (${sc.misses.length}):`);
     for (const m of sc.misses) {
       L.push(`    ${m.id.padEnd(28)} ${String(m.subTechnique).slice(0, 30).padEnd(31)} ${m.harness}/${m.stage}` +
-        (m.anyStepDetected ? "   (caught at an earlier step only)" : "") + (m.degraded ? "   [degraded]" : ""));
+        (m.anyStepDetected ? "   (caught at an earlier step only)" : ""));
     }
   }
   if (opts.fps) {
@@ -134,10 +133,6 @@ export function renderReport(result, opts = {}) {
   L.push(`  false-positive rate       ${pct(o.fpRate)}   ${o.totals.fp}/${o.totals.benign}`);
   L.push(`  AMTSO: prevented ${o.amtso.prevented} (hard ${o.amtso.preventedHard}) · detected-only ${o.amtso.detectedNotPrevented} · missed ${o.amtso.missed} · inconclusive ${o.amtso.inconclusive} · not-applicable ${o.amtso.notApplicable}`);
   L.push(`         model-refusal ${o.amtso.modelRefusal} · model-recognition ${o.amtso.modelRecognition}  (measured-as-absent: this harness has no model in the loop)`);
-  if (o.totals.degraded) {
-    L.push(`  NOTE: ${o.totals.degraded} row(s) were DEGRADED — scored by flattening a tool call to text because the adapter`);
-    L.push(`        declares no action surface. Those numbers describe a text scanner, not action enforcement.`);
-  }
   L.push("");
   return L.join("\n");
 }
@@ -148,7 +143,10 @@ export function renderReport(result, opts = {}) {
 
 export function renderJson(result) {
   return {
-    schema: "agentic-security-benchmark/result@1",
+    // @2 dropped the `degraded` counters. They existed only for the action -> flattened-text fallback,
+    // which is gone: an adapter with no scanAction now scores those rows `not-applicable`. Nothing
+    // else in the shape changed, so an @1 reader sees @2 as an @1 file with no degraded rows.
+    schema: "agentic-security-benchmark/result@2",
     generatedAt: result.generatedAt,
     harness: {
       deterministic: true,
@@ -176,7 +174,6 @@ export function renderJson(result) {
       precision: c.score.precision,
       fpRate: c.score.fpRate,
       rightReason: c.score.rightReason,
-      degraded: c.score.totals.degraded,
       amtso: {
         prevented: c.score.amtso.prevented,
         preventedHard: c.score.amtso.preventedHard,
@@ -209,7 +206,6 @@ export function renderJson(result) {
       fpRate: result.overall.fpRate,
       notApplicable: result.overall.totals.notApplicable,
       inconclusive: result.overall.totals.inconclusive,
-      degraded: result.overall.totals.degraded,
       amtso: result.overall.amtso
     }
   };

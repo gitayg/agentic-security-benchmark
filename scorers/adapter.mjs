@@ -10,7 +10,8 @@
 //     capabilities: { text: true, action: false, session: false, events: false }, // required
 //     async init(ctx) {},                                 // optional
 //     async scanText(text, stage) { return []; },         // required iff capabilities.text
-//     async scanAction(action) { return []; },            // optional; { tool_name, tool_input }
+//     async scanAction(action, ctx) { return []; },       // optional; action = { tool_name, tool_input }
+//                                                         // ctx = { sessionId, index, of, consume }
 //     async scanSession(turns) { return []; },            // optional; turns = string[]
 //     async scanEvents(events) { return []; },            // optional; opaque array from the sample
 //     async close() {}                                    // optional
@@ -34,8 +35,15 @@ export const ACTIONS = Object.freeze(["disabled", "notify", "alert", "justify", 
 export const HARNESSES = Object.freeze(["text", "steps", "session", "events", "action"]);
 
 // Which capability flag a harness requires. A sample whose harness maps to a capability the adapter
-// does not declare is NOT-APPLICABLE — never a miss. `action` is the one exception: it degrades to a
-// text scan of a flattened action when the adapter has scanText but no scanAction (see flattenAction).
+// does not declare is NOT-APPLICABLE — never a miss, never a catch, excluded from every rate.
+//
+// THERE IS NO EXCEPTION, AND THERE USED TO BE ONE. Until result schema @2 an `action` sample was
+// scored against a deterministic flattening of the tool call fed to scanText, and the row was marked
+// `degraded`. That answered a different question from the one the corpus asks: a vector-4 sample is a
+// RESOLVED ACTION, and the only thing that can stop it is a surface that sees tool calls. Scanning the
+// prose form of an action measures a text scanner. The flattening is gone; an adapter with no
+// scanAction now gets `not-applicable` on those rows, exactly like an events sample against a
+// text-only adapter, and its denominator shrinks instead of being filled with a proxy measurement.
 export const HARNESS_CAPABILITY = Object.freeze({
   text: "text",
   steps: "text",
@@ -160,37 +168,6 @@ export async function loadAdapter(spec, baseUrl = import.meta.url) {
     );
   }
   return validateAdapter(mod, spec);
-}
-
-// ---------------------------------------------------------------------------------------------
-// The action -> text degradation
-// ---------------------------------------------------------------------------------------------
-
-// THE FLATTENING, in one place so it can be cited exactly.
-//
-// When a sample's harness is "action" and the adapter has scanText but NOT scanAction, the harness
-// does not skip the sample and it does not credit the adapter with a miss-by-default. It scans this
-// deterministic flattening of the resolved tool call at the "prompt" stage, and MARKS the resulting
-// row `degraded: true` so every report can say the number came from the fallback rather than from a
-// real action-surface integration.
-//
-// Format (exactly):
-//   line 1        `tool: <tool_name>`
-//   lines 2..n    `<key>: <value>` for every own key of tool_input, keys sorted with the default
-//                 lexicographic (code-unit) order so the output does not depend on JSON key order.
-//                 A string value is emitted verbatim; anything else is JSON.stringify'd.
-//   joined with "\n". A missing/!object tool_input contributes no lines.
-export function flattenAction(action) {
-  const name = String(action?.tool_name ?? "");
-  const lines = [`tool: ${name}`];
-  const input = action?.tool_input;
-  if (input && typeof input === "object" && !Array.isArray(input)) {
-    for (const key of Object.keys(input).sort()) {
-      const v = input[key];
-      lines.push(`${key}: ${typeof v === "string" ? v : JSON.stringify(v)}`);
-    }
-  }
-  return lines.join("\n");
 }
 
 // ---------------------------------------------------------------------------------------------
