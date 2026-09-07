@@ -98,9 +98,11 @@ withheld, and so is a separate held-out attack set. The file records the withhel
 algorithm in its own `_heldOutSplitWithheld` block, so the omission is visible in the data rather than
 only in prose.
 
-Publishing the locked halves would destroy them permanently and retroactively invalidate every
-generalisation claim built on them — including the ones in [`./results/`](./results/README.md). No
-contribution to a locked split is accepted from outside.
+Both withheld sets are nonetheless **public** in the MoorAI repository, so every number in
+[`./results/`](./results/README.md) can be reproduced by a third party. Publishing a held-out set does
+not destroy it; TUNING against it does, and that is the rule we hold ourselves to. Being public means
+you can check us rather than take our word for it. No contribution to a locked split is accepted from
+outside, because a split's provenance depends on it being fixed before anyone saw a score.
 
 **Any vendor doing this properly should keep their own.** The algorithm above needs no stored seed, so
 you can generate a locked split from any corpus you have, including the published tune halves. Then

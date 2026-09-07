@@ -195,14 +195,17 @@ is the best worked example here of a relabel that cut both ways.
 
 ## The locked split, and why part of the corpus is missing
 
-Two held-out splits are deliberately **not published**: the `test` half of the web-content benign
-corpus, and a separate held-out attack set.
+Two held-out splits are **not shipped in this repository**: the `test` half of the web-content benign
+corpus, and a separate held-out attack set. They are **not secret** — both live in the public MoorAI
+repository (`test/redteam/heldout-v2-test.json`, and `test/redteam/benign-web-content.json`, where
+every sample carries a `split` field). Anyone can fetch them and reproduce our numbers.
 
-Their entire value is that nobody tunes against them — including the maintainer. A held-out set is a
+Their value is that nobody TUNES against them — including the maintainer. A held-out set is a
 consumable: it measures generalisation exactly once per decision made in ignorance of it. Tuning
 against one silently converts it into a training set, not through cheating but through ordinary
-iteration, and nothing about the set looks different afterwards. Publishing them would destroy them
-permanently and retroactively invalidate every generalisation claim built on them.
+iteration, and nothing about the set looks different afterwards. Publishing a set does not destroy
+it; tuning against it does. What being public costs us is the ability to *prove* we have not — you
+have our process and our commit history, not a guarantee. What it buys you is reproducibility.
 
 **This is a feature of the methodology, not a hedge, and any vendor doing this properly should keep
 one too.** The split algorithm is published and needs no stored seed, so you can generate your own:

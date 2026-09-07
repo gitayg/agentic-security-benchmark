@@ -118,23 +118,35 @@ overstates the hard-negative total.
 
 ---
 
-## The locked split that is NOT here
+## The locked split, and what "locked" does and does not mean
 
-`benign-web-content-tune.json` is exactly half of a 311-sample corpus. **The other 153 samples — the
-`test` half — are deliberately withheld, and so is a separate held-out attack set.**
+`benign-web-content-tune.json` is exactly half of a 311-sample corpus. The other 153 samples — the
+`test` half — are not in this repository, and neither is the held-out attack set that MoorAI's
+generalisation numbers are measured on.
 
-This is a feature of the methodology, not a hedge.
+**They are not secret.** Both live in the MoorAI repository, which is public: the attack set as
+`test/redteam/heldout-v2-test.json`, and the web-content corpus as `test/redteam/benign-web-content.json`,
+where every sample carries a `split` field of `tune` or `test`. Anyone who wants to check our
+numbers can fetch them and re-run the scorers. That is deliberate — a benchmark whose headline
+figures cannot be reproduced by a third party is worth very little.
 
-A held-out set is a consumable. It measures generalisation exactly once per decision made in
-ignorance of it, and every look costs some of that — not through cheating, but through ordinary
-iteration. Each time a threshold is nudged or a rule widened because the held-out score moved,
-information from that set has entered the product, and the number it produces afterwards describes
-memorisation rather than generalisation. Nothing about the set looks different once this has
-happened, which is precisely why it has to be prevented structurally.
+**"Locked" is a rule about what we do with them, not a claim that you cannot see them.** The rule is:
+never tune against the test half. It is the only remaining valid generalisation measure, it is scored
+by the orchestrator rather than by the agents doing the work, and no contribution to a locked split is
+accepted from outside (see `../CONTRIBUTING.md`).
 
-Publishing the locked halves would destroy them permanently and retroactively invalidate every
-generalisation claim built on them — including MoorAI's own. So they stay private, and no
-contribution to a locked split is accepted from outside (see `../CONTRIBUTING.md`).
+That rule matters because a held-out set is a consumable. It measures generalisation exactly once per
+decision made in ignorance of it, and every look costs some of that — not through cheating, but
+through ordinary iteration. Each time a threshold is nudged or a rule widened because the held-out
+score moved, information from that set has entered the product, and the number it produces afterwards
+describes memorisation rather than generalisation. Nothing about the set looks different once this has
+happened, which is precisely why it has to be prevented by process rather than by care.
+
+Publishing the files does not itself destroy them; tuning against them does. What being public costs
+us is the ability to *prove* we did not — you have our process and our commit history, not a
+guarantee. What it buys you is the ability to reproduce every number we publish, and to catch us if
+the two ever disagree. We think that is the better trade, and we would rather say so plainly than
+claim a secrecy we do not have.
 
 **You should keep your own.** The split algorithm is published and needs no stored seed, so you can
 generate one from any corpus you have:

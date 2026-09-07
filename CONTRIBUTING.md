@@ -60,8 +60,10 @@ negatives**, benign text deliberately shaped like an attack.
 
 ## Locked held-out splits are closed
 
-One half of the corpus material is deliberately withheld: the **`test` half of the web-content
-benign corpus**, and a separate **held-out attack set**. Only the tune halves are published.
+One half of the corpus material is not shipped here: the **`test` half of the web-content benign
+corpus**, and a separate **held-out attack set**. Only the tune halves live in this repository. They
+are not secret — both are in the public MoorAI repository, and anyone can fetch them to reproduce
+our numbers. "Locked" is a rule about what we do with them, not a claim that you cannot read them.
 
 **Additions to any held-out or locked split are not accepted from outside.** This is not
 gatekeeping and it is not about trust. The entire value of a held-out split is that **nobody has
