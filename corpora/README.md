@@ -100,8 +100,21 @@ Where a hard negative was written as the deliberate twin of a specific attack, i
 say *which kind* of benign prompt a product misfires on, rather than only how often. A rate alone
 tells you nothing you can act on.
 
-Counts of `hard_negative: true` per file: `benign-corpus-v2` 269, `benign-web-content-tune` (see the
-file's `_stats`), `vector2` 17, `vector3` 17, `vector4` 24, `vector5` 20.
+Not every hard negative is a twin: a sample can be engineered to look malicious without being written
+against one specific attack, and `vector4` in particular carries more `twin_of` pairings than
+`hard_negative` flags. The two counts are therefore listed separately, because conflating them
+overstates the hard-negative total.
+
+| file | `hard_negative: true` | `twin_of` |
+| --- | ---: | ---: |
+| `benign-corpus-v2` | 269 | 269 |
+| `benign-web-content-tune` | 62 | 0 |
+| `heldout-v2-tune` | 0 | 0 |
+| `vector2-indirect-content` | 16 | 17 |
+| `vector3-supply-chain` | 17 | 17 |
+| `vector4-outbound-action` | 17 | 24 |
+| `vector5-memory-crossagent` | 20 | 20 |
+| **total** | **401** | **347** |
 
 ---
 

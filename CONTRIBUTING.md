@@ -171,7 +171,12 @@ stale — which is the failure mode, not the fix: an exemption that outlives its
 blanket exemption. The corpus was re-prefixed to `bcv2-` instead and the allowlist deleted.
 
 **Adding a corpus?** Add its prefix to `ID_PREFIXES` in `test/validate-corpora.mjs` and `idPrefix`
-in `scorers/corpus.mjs`. The two are deliberately separate copies: if they drift, CI fails.
+in `scorers/corpus.mjs`. The two are deliberately separate copies: if they drift, CI fails. Add a
+row for it to the hard-negative table in [`corpora/README.md`](./corpora/README.md) too, with its
+measured `hard_negative: true` and `twin_of` counts and an updated total — the validator derives
+those counts from the files and fails if the published table disagrees. That table stated one
+vector's `twin_of` count in the `hard_negative` column for long enough to publish a total of 409
+against a measured 401, which is why it is now checked rather than maintained by hand.
 
 **Stage is load-bearing.** A sample fed at the wrong stage measures nothing — or worse, measures a
 *different* vector and flatters the result. Content that really arrives as tool output must be

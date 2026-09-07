@@ -416,3 +416,62 @@ test("every sample id named in results/ still exists in the corpora", { skip: !!
     }
   }
 });
+
+// ── the README's hard-negative table ──────────────────────────────────────────
+//
+// corpora/README.md publishes a per-file count of `hard_negative: true` and `twin_of`. It drifted
+// once and nothing caught it: the table carried each vector's `twin_of` count in the
+// `hard_negative` column, which is invisible for vector3 and vector5 (where the two counts happen
+// to be equal) and wrong for vector2 (16 vs 17) and vector4 (17 vs 24). The published total was
+// 409 against a measured 401.
+//
+// A hard negative and a twin are not the same thing: a sample can be shaped to look malicious
+// without being written against one specific attack, so `twin_of` is a subset relationship in one
+// direction only and the counts must be read separately. This test is the reason the table can be
+// trusted — it is derived from the same files the table describes.
+test("the README's hard-negative table matches the corpora", () => {
+  const md = readFileSync(join(ROOT, "corpora", "README.md"), "utf8");
+
+  // Measure: walk every object, skipping `_`-prefixed metadata keys so a `_stats` block that
+  // mentions these fields cannot be counted as a sample.
+  const measured = {};
+  const walk = (node, hit) => {
+    if (Array.isArray(node)) { for (const x of node) walk(x, hit); return; }
+    if (!node || typeof node !== "object") return;
+    if (node.hard_negative === true) hit.hn++;
+    if (node.twin_of) hit.tw++;
+    for (const k of Object.keys(node)) if (k[0] !== "_") walk(node[k], hit);
+  };
+  for (const f of files) {
+    const hit = { hn: 0, tw: 0 };
+    walk(JSON.parse(readFileSync(join(CORPUS_DIR, f), "utf8")), hit);
+    measured[f.replace(/\.json$/, "")] = hit;
+  }
+
+  // Parse: rows look like `| `name` | 269 | 269 |`; the totals row uses bold.
+  const rows = new Map();
+  let totals = null;
+  for (const line of md.split("\n")) {
+    const cells = line.split("|").map((c) => c.trim()).filter((c) => c !== "");
+    if (cells.length !== 3) continue;
+    const num = (c) => Number(c.replace(/\*/g, ""));
+    if (/^\*\*total\*\*$/i.test(cells[0])) { totals = { hn: num(cells[1]), tw: num(cells[2]) }; continue; }
+    const name = cells[0].replace(/`/g, "");
+    if (!Object.hasOwn(measured, name)) continue;
+    rows.set(name, { hn: num(cells[1]), tw: num(cells[2]) });
+  }
+
+  assert.ok(rows.size > 0, "corpora/README.md has no recognisable hard-negative table rows");
+
+  for (const name of Object.keys(measured)) {
+    assert.ok(rows.has(name), `corpora/README.md's hard-negative table is missing a row for ${name}`);
+    const want = measured[name], got = rows.get(name);
+    assert.equal(got.hn, want.hn, `corpora/README.md says ${name} has ${got.hn} \`hard_negative: true\` samples; the file has ${want.hn}`);
+    assert.equal(got.tw, want.tw, `corpora/README.md says ${name} has ${got.tw} \`twin_of\` samples; the file has ${want.tw}`);
+  }
+
+  const sum = Object.values(measured).reduce((a, m) => ({ hn: a.hn + m.hn, tw: a.tw + m.tw }), { hn: 0, tw: 0 });
+  assert.ok(totals, "corpora/README.md's hard-negative table has no **total** row");
+  assert.equal(totals.hn, sum.hn, `corpora/README.md totals ${totals.hn} hard negatives; the corpora contain ${sum.hn}`);
+  assert.equal(totals.tw, sum.tw, `corpora/README.md totals ${totals.tw} twins; the corpora contain ${sum.tw}`);
+});

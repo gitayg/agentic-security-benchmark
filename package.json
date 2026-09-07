@@ -1,6 +1,6 @@
 {
   "name": "agentic-security-benchmark",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A vendor-neutral, deterministic benchmark for agentic-AI security products, scored against the AMTSO agentic attack vectors.",
   "type": "module",
   "private": false,
