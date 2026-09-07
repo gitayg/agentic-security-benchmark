@@ -143,6 +143,7 @@ so a reader can tell the difference.
 | Hard negatives declare `twin_of` | CI |
 | No credential-shaped string outside the documented placeholder allowlist | CI |
 | No `split: "test"` row and no lock-shaped top-level key | CI |
+| Every sample id named in a `results/*.json` still exists | CI (regenerate the results file when ids change) |
 | The sample measures something the corpora do not already measure | Review |
 | The severity and the criteria behind it are stated | Review |
 

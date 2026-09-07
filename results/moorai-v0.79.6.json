@@ -10,6 +10,7 @@
     "runBy": "the benchmark maintainer",
     "conflictOfInterest": "YES — the benchmark maintainer is also the author of MoorAI. Stated, not hidden. This result is self-run and is not an independent test.",
     "command": "MOORAI_REPO=<checkout> node scorers/run.mjs --adapter moorai --corpus all --json",
+    "corporaCommit": "bf2ec3553d654551dba12140ed3069540f817cd0",
     "modelRefusalBaseline": {
       "ran": false,
       "note": "NOT run in this harness. This harness is deterministic and model-free, so model-refusal and model-recognition are reported as measured-as-absent zeros. Consequently the recall below is a RAW detection rate over the full attack corpus and has NOT had the underlying model's own refusals subtracted. It is therefore NOT the product's marginal contribution and must not be compared against a figure that has subtracted a refusal baseline. See AMTSO.md section 3."
@@ -29,11 +30,22 @@
     "modelInLoop": false,
     "note": "model-refusal and model-recognition are always 0 here and are MEASURED-AS-ABSENT, not omitted: there is no model in this loop to observe."
   },
+  "adapter": {
+    "name": "moorai",
+    "version": "0.79.6",
+    "capabilities": {
+      "text": true,
+      "action": false,
+      "session": true,
+      "events": true
+    },
+    "source": "moorai"
+  },
   "options": {
     "corpus": "all",
     "timeoutMs": null
   },
-  "generatedAt": "2026-09-07T09:18:51.716Z",
+  "generatedAt": "2026-09-07T09:31:57.387Z",
   "corpora": [
     {
       "corpus": "vector2-indirect-content",

@@ -1,5 +1,5 @@
 {
-  "_README": "Copy this file to results/<yourproduct>-<version>.json. The `corpora` and `overall` blocks are produced for you by `node scorers/run.mjs --adapter <yours> --corpus all --json` — paste them in verbatim, do not hand-edit them. Everything in `product` is yours to fill in, and a PR that leaves a REQUIRED field blank will be asked to complete it before review. Delete this key.",
+  "_README": "Copy this file to results/<yourproduct>-<version>.json. Everything except `product` is produced for you by `node scorers/run.mjs --adapter <yours> --corpus all --json` — paste `harness`, `adapter`, `options`, `generatedAt`, `corpora` and `overall` in verbatim and do not hand-edit them. `product` is the only block you write, and a PR that leaves a REQUIRED field blank will be asked to complete it before review. The --json output has no `product` key, so add it; nothing else in this file is invented. Delete this key.",
 
   "schema": "agentic-security-benchmark/result@1",
 
@@ -14,6 +14,7 @@
     "runBy": "REQUIRED — who executed this run",
     "conflictOfInterest": "REQUIRED — 'I am the vendor' is a perfectly acceptable answer. Saying nothing is not. No result in this directory is an independent test and none is presented as one.",
     "command": "REQUIRED — the exact command, so somebody else can repeat it",
+    "corporaCommit": "REQUIRED — `git log -1 --format=%H -- corpora` in THIS repository at the time of the run. A result is only interpretable against a specific corpus state, and the corpora change. Without this, a reader who re-runs and gets a different number cannot tell whether the product changed or the corpus did.",
 
     "modelRefusalBaseline": {
       "ran": false,
@@ -34,6 +35,9 @@
 
   "harness": {
     "_note": "Paste verbatim from the --json output. Do not edit."
+  },
+  "adapter": {
+    "_note": "Paste verbatim from the --json output. Do not edit. It carries your adapter's name, version, source and — the part a reader needs — its `capabilities`, which is what explains the not-applicable rows. A result showing 28 not-applicable samples is only readable next to a capabilities block saying `events: false`."
   },
   "options": {
     "_note": "Paste verbatim from the --json output. Do not edit."

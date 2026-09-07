@@ -8,6 +8,7 @@
     "runBy": "the benchmark maintainer",
     "conflictOfInterest": "None. This is not a product and is not for sale.",
     "command": "node scorers/run.mjs --adapter keyword --corpus all --json",
+    "corporaCommit": "bf2ec3553d654551dba12140ed3069540f817cd0",
     "purpose": "The FLOOR. A deliberately naive regex/keyword matcher, shipped so the repository runs with zero setup and so a reader can tell whether a product's number is actually good. A real product that does not comfortably beat this on BOTH recall and false positives has not demonstrated much. Note its 28 not-applicable rows: it implements text only, so vector-5 event and session samples were never put to it and are excluded from every rate rather than counted as misses.",
     "modelRefusalBaseline": {
       "ran": false,
@@ -23,11 +24,22 @@
     "modelInLoop": false,
     "note": "model-refusal and model-recognition are always 0 here and are MEASURED-AS-ABSENT, not omitted: there is no model in this loop to observe."
   },
+  "adapter": {
+    "name": "keyword",
+    "version": "1.0.0",
+    "capabilities": {
+      "text": true,
+      "action": false,
+      "session": false,
+      "events": false
+    },
+    "source": "keyword"
+  },
   "options": {
     "corpus": "all",
     "timeoutMs": null
   },
-  "generatedAt": "2026-09-07T09:13:35.272Z",
+  "generatedAt": "2026-09-07T09:30:26.560Z",
   "corpora": [
     {
       "corpus": "vector2-indirect-content",

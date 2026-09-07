@@ -8,10 +8,12 @@ false-positive number, and a distribution of outcomes graded against
 
 ```bash
 git clone <this repo> && cd agentic-security-benchmark
-npm run score -- --adapter keyword
+npm run score -- --adapter keyword          # no npm install — there is nothing to install
 ```
 
-No dependencies. No API key. No network call. No model in the loop. Node 20+.
+**There is no install step.** Zero dependencies, no API key, no network call, no model in the loop,
+no `node_modules`. Node 20+ and a clone is the whole setup; `npm run score` is equivalent to
+`node scorers/run.mjs`.
 
 That command runs a deliberately naive reference adapter so you can see the output shape immediately.
 Swap in your own product and the same command scores it.
@@ -53,7 +55,7 @@ Full treatment in [`AMTSO.md`](./AMTSO.md).
 
 | | |
 |---|---|
-| [`corpora/`](./corpora/README.md) | **286 attack samples, 875 benign**, across five AMTSO attack vectors. Each attack carries a validity statement; most carry all four AMTSO label dimensions. A large share of the benign samples are **hard negatives** — legitimate work deliberately shaped to look like an attack. |
+| [`corpora/`](./corpora/README.md) | **286 attack samples, 875 benign**, across five AMTSO attack vectors. 225 of the 286 attacks carry a validity statement and 216 carry AMTSO labels; 102 carry all four label dimensions. (The gaps are per-corpus and are itemised in [`corpora/README.md`](./corpora/README.md) — the tune half of the held-out set carries neither.) A large share of the benign samples are **hard negatives** — legitimate work deliberately shaped to look like an attack. |
 | [`scorers/`](./scorers/README.md) | The harness. A small adapter interface with **one required method**, plus three reference adapters (`null`, `keyword`, `moorai`). Zero dependencies. |
 | [`AMTSO.md`](./AMTSO.md) | The outcome vocabulary, the six classification dimensions, baseline validation, and why model refusal must not be credited to the product. |
 | [`METHODOLOGY.md`](./METHODOLOGY.md) | The locked split, right-reason scoring, falsification discipline, and how to grade your own product. |
@@ -86,13 +88,39 @@ export default {
 node scorers/run.mjs --adapter ./acme-adapter.mjs --corpus all --json > results/acme-1.4.2.json
 ```
 
+**Every `scan*` returns an array of findings.** An empty array means "nothing fired" — that is a
+normal answer, not an error.
+
+```js
+{ id: "RULE-17",            // REQUIRED. string or number. Your own rule/threat id.
+  action: "block",          // optional. "disabled"|"notify"|"alert"|"justify"|"block"|"kill"
+  category: "exfiltration", // optional, string
+  severity: "high" }        // optional, string
+```
+
+**The one rule worth reading twice: a finding with no `action` is treated as `notify`, which is a
+DETECTION and never a prevention.** Prevention is derived from the enforcement action your own policy
+would take — `justify`, `block` or `kill` — never from the fact that something fired. You cannot earn
+a "prevented" outcome by returning more findings. If your product's policy would only log, say
+`notify`, and your prevention rate will correctly read low; that is the number, not a penalty.
+
+A malformed finding (missing `id`, an `action` outside that list) **fails the run** with the adapter
+name, the method and the offending index. It is never coerced or silently dropped, because a number
+produced from a swallowed error is a number nobody can reproduce.
+
+`init(ctx)` and `close()` are optional and run once each, around the whole run — that is where an
+adapter loads a model, opens a socket, or checks that an external checkout is present.
+
 Optional `scanAction`, `scanSession` and `scanEvents` unlock the action-, sequence- and event-graph
 samples. **You are not penalised for omitting them.** Samples whose harness you do not implement land
 in a `not-applicable` bucket and are excluded from every rate — a text-only product does not appear to
-have *missed* fifteen event-graph samples it was never shown.
+have *missed* fifteen event-graph samples it was never shown. The one exception is `action`: if you
+have `scanText` but no `scanAction`, those samples are scored against a deterministic flattening of
+the tool call and every such row is marked `degraded: true`, so a reader can tell a text scan from
+action enforcement.
 
-Details in [`scorers/README.md`](./scorers/README.md). Adding your results:
-[`results/README.md`](./results/README.md).
+Details in [`scorers/README.md`](./scorers/README.md) — including the exact flattening format and the
+right-reason rules. Adding your results: [`results/README.md`](./results/README.md).
 
 ---
 

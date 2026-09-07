@@ -1,12 +1,28 @@
 name: validate
 
 # The gate on every corpus change: the samples must be well-formed, uniquely identified,
-# justified by a validity statement, free of credential-shaped strings, and free of any leak
-# from a locked held-out split.
+# inside their corpus's id namespace, justified by a validity statement, free of credential-shaped
+# strings, and free of any leak from a locked held-out split. It also fails if a published
+# results/ file names a sample id that no longer exists.
 #
 # This workflow deliberately needs no secrets and no network access beyond checkout and the
 # Node setup. The validator has zero dependencies and never installs anything, so a corpus PR
 # from a fork cannot execute third-party code in CI.
+#
+# WHAT IT DOES NOT COVER, so nobody mistakes a green tick for more than it is:
+#   * the .github/ISSUE_TEMPLATE/*.yml issue forms. They are not checked here at all — not even
+#     parsed. They were validated out-of-band against GitHub's published form schema (see
+#     CONTRIBUTING.md); a syntax error in one of them would show up as a broken form on GitHub,
+#     not as a red run here.
+#   * the `moorai` reference adapter, which needs a MoorAI checkout this workflow does not have.
+#     Only the dependency-free `keyword` adapter is exercised.
+#   * any score. See the smoke-run comment below.
+#
+# EVERY STEP HERE HAS BEEN RUN LOCALLY AND SEEN FAIL. Each check was falsified against a
+# deliberately-broken corpus copy (BENCHMARK_CORPORA_DIR) before this comment was written:
+# a bad harness value, a missing shouldDetect, a duplicate id, an out-of-namespace id, an
+# unregistered corpus file, an unparseable file, a planted xoxb- token, a split:"test" leak, a
+# stale results id, a malformed adapter finding and a missing corpus file all exit non-zero.
 
 on:
   pull_request:

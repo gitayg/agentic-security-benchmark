@@ -57,6 +57,12 @@ not demonstrated much.
    ```
    node scorers/run.mjs --adapter ./path/to/your-adapter.mjs --corpus all --json > results/yourproduct-vX.Y.Z.json
    ```
+   Then copy the `product` block out of [`TEMPLATE.json`](./TEMPLATE.json) into it and fill it in.
+   **`product` is the only block you write** — the `--json` output has no `product` key, and every
+   other block is pasted verbatim. Record `product.corporaCommit`
+   (`git log -1 --format=%H -- corpora`): a result is only interpretable against a specific corpus
+   state, and without it a reader who re-runs and gets a different number cannot tell whether the
+   product changed or the corpus did.
 3. Open a **Submit results for another product** issue with the outcome distribution, the exact
    command, and your conflict-of-interest declaration.
 4. Open a PR adding the results file (and your adapter, if you want it in-tree). A maintainer

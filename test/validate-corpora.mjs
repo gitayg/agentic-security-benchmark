@@ -388,3 +388,31 @@ test("no locked held-out split has leaked into the published corpora", () => {
     assert.deepEqual(lockish, [], `${f}: lock-shaped top-level key(s) ${lockish.join(", ")} suggest a locked split was published`);
   }
 });
+
+// ---------------------------------------------------------------------------------------------
+// results/ <-> corpora consistency.
+//
+// A results file names sample ids in its `misses` and `falsePositives` lists. Those ids are the only
+// actionable part of a published result — "which attacks did it miss" — and they go stale silently
+// the moment a corpus is edited. This is not hypothetical: the corpora once carried six ids that
+// denoted two different samples each, and the results files pointed at both.
+//
+// Skipped when BENCHMARK_CORPORA_DIR is set: pointing the validator at a deliberately-broken corpus
+// copy says nothing about whether the published results match the REAL corpora.
+test("every sample id named in results/ still exists in the corpora", { skip: !!process.env.BENCHMARK_CORPORA_DIR }, () => {
+  const known = new Set(ALL.map((r) => r.s.id));
+  const dir = join(ROOT, "results");
+  const resultFiles = readdirSync(dir).filter((f) => f.endsWith(".json") && f !== "TEMPLATE.json").sort();
+  assert.ok(resultFiles.length > 0, "no results files found — results/ should hold at least one");
+  for (const f of resultFiles) {
+    const j = JSON.parse(readFileSync(join(dir, f), "utf8"));
+    for (const c of j.corpora || []) {
+      for (const key of ["misses", "falsePositives", "inconclusiveRows", "notApplicableRows"]) {
+        for (const row of c[key] || []) {
+          assert.ok(known.has(row.id),
+            `results/${f}: ${c.corpus}.${key} names sample id ${JSON.stringify(row.id)}, which is in no corpus — regenerate this results file (see results/README.md)`);
+        }
+      }
+    }
+  }
+});
