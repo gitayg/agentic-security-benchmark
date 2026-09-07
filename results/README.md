@@ -7,12 +7,16 @@ MoorAI is the first row because somebody had to be. It is not the reference stan
 here is not an endorsement of anything — it is a number with its conditions attached, which is the
 only kind of number worth publishing.
 
+Files are replaced rather than accumulated, one per product. `moorai-v0.79.6.json` was the previous
+row; it was produced by a harness that scored vector 4 through a text flattening that no longer
+exists, so it is superseded rather than kept alongside. It is still in git history.
+
 ## What is here
 
 | File | Product | Recall | FP rate | Run by | Conflict of interest |
 |---|---|--:|--:|---|---|
-| `moorai-v0.79.6.json` | MoorAI agent 0.79.6 | 80.4% (230/286) | 7.5% (66/875) | the benchmark maintainer | **Yes — same author.** Stated, not hidden. |
-| `keyword-baseline.json` | `keyword` reference adapter | 41.8% (112/268) | 5.3% (46/865) | the benchmark maintainer | None. Floor, not a product. |
+| `moorai-v0.79.9.json` | MoorAI agent 0.79.9 | 74.1% (212/286) | 7.3% (64/875) | the benchmark maintainer | **Yes — same author.** Stated, not hidden. |
+| `keyword-baseline.json` | `keyword` reference adapter | 40.3% (85/211) | 5.0% (42/841) | the benchmark maintainer | None. Floor, not a product. |
 | `null-floor.json` | `null` adapter | 0.0% (0/286) | 0.0% (0/875) | the benchmark maintainer | None. Harness sanity check. |
 | `TEMPLATE.json` | — | — | — | — | Copy this. |
 
@@ -21,12 +25,13 @@ Read that table with the limits attached, not as a ranking:
 - **None of these recall figures has had a model-refusal baseline subtracted.** This harness is
   deterministic and model-free, so every figure is a **raw detection rate** over the full attack
   corpus, not a product's marginal contribution. See [`../AMTSO.md`](../AMTSO.md) §3.
-- **The denominators differ**, and that is correct. `keyword` reads text only, so the 28 vector-5
-  event and session samples were never put to it and are excluded rather than counted as misses —
-  its denominator is 268, not 286. Compare rates, never raw counts.
+- **The denominators differ**, and that is correct. `keyword` implements `scanText` and nothing else,
+  so the 28 vector-5 event and session samples and the 81 vector-4 action samples were never put to it
+  and are excluded rather than counted as misses — its denominator is 211, not 286. Compare rates,
+  never raw counts.
 - **MoorAI's number includes a tune half it was developed against.** It scores 100% (61/61) on
   `heldout-v2-tune`, which measures memorisation rather than generalisation. That corpus is in the
-  total, so the 80.4% is flattered by it. This is stated rather than corrected because removing it
+  total, so the 74.1% is flattered by it. This is stated rather than corrected because removing it
   would be a different kind of dishonesty — the fix is to read the per-corpus breakdown.
 - **MoorAI's adapter has documented deviations** from the shipped product, listed in its own
   `knownDeviations` field, each with a measured size rather than a caveat:
@@ -36,12 +41,17 @@ Read that table with the limits attached, not as a ranking:
     The previous version of this file published 43.62% there as an *upper bound*; the real figure is
     18.12%, and the correction moved the overall FP rate from 12.0% (105/875) to 7.5% (66/875).
     Recall did not move: a gate can only remove findings.
-  - **Vector 4 is still degraded** — 81 rows scored by flattening tool calls to text, because the
-    real surface is a hook subprocess. Not fixed. Driving the real hook over the same samples stops
-    18/57 at this posture versus 20/57 prevented here, so prevention is close; the 36/57 *detection*
-    figure has no hook analogue at all.
+  - **Vector 4: fixed, and reconciled.** The adapter now implements `scanAction` and spawns the
+    product's real PreToolUse hook as a subprocess against a sandboxed `HOME`, at the same
+    out-of-the-box posture the text side uses. It agrees with MoorAI's own `scripts/score-vector24.mjs
+    --mode builtin` sample-for-sample: 18/57 stopped and 1/24 false positive on both sides, the same
+    39 missed ids, the same one false-positive id. Residual divergence: **zero**. The previous harness
+    flattened those 81 tool calls to text and reported 20/57 prevented, 36/57 detected and 3/24 FP —
+    the detection figure had no hook analogue at all. That is the whole of the movement in MoorAI's
+    overall number: every other corpus scores identically to the 0.79.6 file.
   - **No enrolled tenant policy**, so prevention is understated — by roughly 18/57 → 43/57 on vector
-    4, measured. `MOORAI_POLICY` now makes that a parameter, but no number here was produced with it.
+    4, measured. `MOORAI_POLICY` now makes that a parameter on both surfaces, but no number here was
+    produced with it.
 
 `null-floor.json` and `keyword-baseline.json` are not products and are not for sale. They exist so a
 reader can tell whether a number is *good*. `null` must score exactly zero on both axes — if it ever

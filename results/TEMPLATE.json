@@ -1,7 +1,7 @@
 {
   "_README": "Copy this file to results/<yourproduct>-<version>.json. Everything except `product` is produced for you by `node scorers/run.mjs --adapter <yours> --corpus all --json` — paste `harness`, `adapter`, `options`, `generatedAt`, `corpora` and `overall` in verbatim and do not hand-edit them. `product` is the only block you write, and a PR that leaves a REQUIRED field blank will be asked to complete it before review. The --json output has no `product` key, so add it; nothing else in this file is invented. Delete this key.",
 
-  "schema": "agentic-security-benchmark/result@1",
+  "schema": "agentic-security-benchmark/result@2",
 
   "product": {
     "name": "REQUIRED — product name as a buyer would see it",
@@ -29,7 +29,7 @@
     },
 
     "knownDeviations": [
-      "OPTIONAL but strongly encouraged. Anywhere your adapter does not exercise the product the way a real deployment does — a suppression rule you could not replicate, a hook you did not spawn, an enforcement policy you did not enable. State whether each deviation makes a number an upper or a lower bound. Reviewers trust a result with a deviations list more than one without."
+      "OPTIONAL but strongly encouraged. Anywhere your adapter does not exercise the product the way a real deployment does — a suppression rule you could not replicate, a hook you did not spawn, an enforcement policy you did not enable. State whether each deviation makes a number an upper or a lower bound, and give it a MEASURED SIZE rather than a caveat: reconcile against whatever the product's own tooling reports on the same samples and publish the residual, including when the residual is not zero. Reviewers trust a result with a deviations list more than one without."
     ]
   },
 
@@ -37,7 +37,7 @@
     "_note": "Paste verbatim from the --json output. Do not edit."
   },
   "adapter": {
-    "_note": "Paste verbatim from the --json output. Do not edit. It carries your adapter's name, version, source and — the part a reader needs — its `capabilities`, which is what explains the not-applicable rows. A result showing 28 not-applicable samples is only readable next to a capabilities block saying `events: false`."
+    "_note": "Paste verbatim from the --json output. Do not edit. It carries your adapter's name, version, source and — the part a reader needs — its `capabilities`, which is what explains the not-applicable rows. A result showing 109 not-applicable samples is only readable next to a capabilities block saying `events: false, action: false`."
   },
   "options": {
     "_note": "Paste verbatim from the --json output. Do not edit."
