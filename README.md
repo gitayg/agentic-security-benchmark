@@ -171,6 +171,13 @@ and model-free by design, so `model-refusal` and `model-recognition` are reporte
 measured-as-absent zeros. Every recall figure in `results/` is therefore a **raw detection rate**, not
 a marginal contribution — including MoorAI's.
 
+**Vector 4 is scored against a text flattening, not a real action surface.** 81 rows in every result
+here are marked `degraded: true` because no bundled adapter implements `scanAction`. Driving MoorAI's
+real enforcement hook over the same 57 attacks stops 18 of them at the same posture, against 20
+"prevented" from this harness — close, but the two are not the same measurement, and the *detection*
+figure has no hook analogue at all. Numbers and method in
+[`scorers/README.md`](./scorers/README.md#actions-vector-4--still-degraded-and-here-is-what-it-costs).
+
 **Two of the seven corpora are half a corpus.** The locked test halves are withheld on purpose. See
 below.
 
