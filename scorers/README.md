@@ -176,12 +176,62 @@ ticket.
 
 ## Known limits of the bundled `moorai` reference adapter
 
-It reproduces the shipped hook's flat inbound suppression (threats 65 and 32 dropped at the `output`
-stage) but **not** the per-threat `INBOUND_GATES` predicates, which are private module state inside
-`cli/moorai-hook.mjs` and cannot be imported without executing the hook. The effect is
-one-directional: the adapter's inbound false-positive rate is an **upper bound** on the shipped
-product's, never an under-count. Recall is unaffected — a gate can only remove findings.
+### Inbound (stage `output`) — reconciled, no longer a bound
 
-It also declares no `capabilities.action`. MoorAI's action surface is a PreToolUse hook subprocess,
-not a library call; re-implementing it here would be a re-implementation rather than a measurement.
-Vector 4 is therefore scored through the documented degraded fallback and every such row says so.
+The adapter reproduces the shipped hook's **whole** inbound path: threats 65 and 32 dropped
+unconditionally, *and* the per-threat `INBOUND_GATES` predicates for threats 15 and 17. The gates
+cannot be imported (`cli/moorai-hook.mjs` executes its hook on import), so they are copied literally
+and `init()` re-reads the checkout and asserts the copy still matches the hook's regex literals, in
+order. **A drifted copy fails the run** rather than publishing a stale number.
+
+Earlier versions replicated only the drop and published the inbound false-positive rate as an *upper
+bound*. It was a loose one. Measured on `benign-web-content-tune`, MoorAI 0.79.6, checkout `c6439a3`:
+
+| filter | inbound FP | attacks caught |
+|---|--:|--:|
+| raw engine (`MOORAI_ADAPTER_RAW_OUTPUT=1`) | 105/149 — 70.47% | 8/9 |
+| drop 65/32 only (the old upper bound) | 65/149 — 43.62% | 7/9 |
+| **drop + `INBOUND_GATES` (what ships)** | **27/149 — 18.12%** | **7/9** |
+
+That 18.12% agrees **sample-for-sample** with MoorAI's own
+`scripts/score-webfetch-benign.mjs --split tune`, which spawns the real hook as a subprocess: the
+same 27 of 149, the same 27 ids, and the same per-threat split (#17 8, #15 5, #39 5, #40 3, #55 3,
+#44 2, #1 1, #29 1, #45 1). Residual divergence: **zero**.
+
+### Actions (vector 4) — still degraded, and here is what it costs
+
+The adapter declares no `capabilities.action`. MoorAI's action surface is a PreToolUse hook
+subprocess against a sandboxed `HOME`, not a library call; re-implementing it here would be a
+re-implementation rather than a measurement. Vector 4 is scored through the documented degraded
+fallback and every such row says so.
+
+This is **not fixed**, so the size of the gap is published instead. MoorAI's own
+`scripts/score-vector24.mjs` drives the real hook over the same 57 attacks / 24 benign controls
+(byte-identical samples; only JSON formatting differs). Run 2026-09-07, checkout `c6439a3`:
+
+| posture | stopped (deny/ask) | benign FP |
+|---|--:|--:|
+| real hook, unenrolled | 0/57 — 0.0% | 0/24 |
+| real hook, enrolled, no org policy | 18/57 — 31.6% | 1/24 |
+| real hook, offline fail-closed | 49/57 — 86.0% | 11/24 |
+| real hook, enforcing org policy | 43/57 — 75.4% | 3/24 |
+| **this harness, flattened text, no org policy** | **20/57 — 35.1% prevented** | **3/24** |
+
+The deviation is **not one-directional**, and the earlier one-line caveat implied it was:
+
+- **Prevention** is the comparable column, and the flattening lands within 2 samples of the real hook
+  at the same posture (20 vs 18) — by luck of this corpus, not by construction.
+- **Detection** (36/57, 63.2%) has no real-hook analogue at all. The hook's decision channel carries
+  only `deny`/`ask`; its `notify` findings go out-of-band to the alert wire. "63.2% caught" here and
+  "31.6% stopped" there answer different questions.
+- The **tenant-policy** deviation is the large one: 18/57 → 43/57 under an enforcing org policy,
+  +25 attacks stopped, for 1/24 → 3/24 benign.
+
+### Tenant policy — now a parameter
+
+`MOORAI_POLICY=/path/to/policy.json` scores under a real org policy instead of the out-of-the-box
+posture. The file goes straight to MoorAI's own `threatActionFor`, so its `threatPolicy` /
+`tierPolicy` keys mean what they mean in the product. The default stays "no policy" deliberately — a
+headline measured under a policy the maintainer wrote for the occasion is a number about that policy
+— and the adapter prints a banner to stderr whenever one is loaded. Anything published with it set
+must say so and name the policy.

@@ -11,7 +11,7 @@ only kind of number worth publishing.
 
 | File | Product | Recall | FP rate | Run by | Conflict of interest |
 |---|---|--:|--:|---|---|
-| `moorai-v0.79.6.json` | MoorAI agent 0.79.6 | 80.4% (230/286) | 12.0% (105/875) | the benchmark maintainer | **Yes — same author.** Stated, not hidden. |
+| `moorai-v0.79.6.json` | MoorAI agent 0.79.6 | 80.4% (230/286) | 7.5% (66/875) | the benchmark maintainer | **Yes — same author.** Stated, not hidden. |
 | `keyword-baseline.json` | `keyword` reference adapter | 41.8% (112/268) | 5.3% (46/865) | the benchmark maintainer | None. Floor, not a product. |
 | `null-floor.json` | `null` adapter | 0.0% (0/286) | 0.0% (0/875) | the benchmark maintainer | None. Harness sanity check. |
 | `TEMPLATE.json` | — | — | — | — | Copy this. |
@@ -29,10 +29,19 @@ Read that table with the limits attached, not as a ranking:
   total, so the 80.4% is flattered by it. This is stated rather than corrected because removing it
   would be a different kind of dishonesty — the fix is to read the per-corpus breakdown.
 - **MoorAI's adapter has documented deviations** from the shipped product, listed in its own
-  `knownDeviations` field: an inbound suppression it could only partly replicate (making its
-  false-positive rate an **upper bound**), vector-4 samples scored by flattening tool calls to text
-  rather than through a real hook subprocess, and no enrolled tenant policy (so prevention is
-  understated).
+  `knownDeviations` field, each with a measured size rather than a caveat:
+  - **Inbound: none left.** The adapter now replicates the shipped hook's whole `PostToolUse` path,
+    including the `INBOUND_GATES` predicates it previously could not. It agrees sample-for-sample
+    with MoorAI's own hook-spawning scorer on the same corpus — 27 false positives of 149 either way.
+    The previous version of this file published 43.62% there as an *upper bound*; the real figure is
+    18.12%, and the correction moved the overall FP rate from 12.0% (105/875) to 7.5% (66/875).
+    Recall did not move: a gate can only remove findings.
+  - **Vector 4 is still degraded** — 81 rows scored by flattening tool calls to text, because the
+    real surface is a hook subprocess. Not fixed. Driving the real hook over the same samples stops
+    18/57 at this posture versus 20/57 prevented here, so prevention is close; the 36/57 *detection*
+    figure has no hook analogue at all.
+  - **No enrolled tenant policy**, so prevention is understated — by roughly 18/57 → 43/57 on vector
+    4, measured. `MOORAI_POLICY` now makes that a parameter, but no number here was produced with it.
 
 `null-floor.json` and `keyword-baseline.json` are not products and are not for sale. They exist so a
 reader can tell whether a number is *good*. `null` must score exactly zero on both axes — if it ever

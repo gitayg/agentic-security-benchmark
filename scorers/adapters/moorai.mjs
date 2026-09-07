@@ -16,36 +16,78 @@
 //   scanEvents   -> runAgentDetections(events)                 finding id = detection bucket name
 //   scanAction   -> NOT IMPLEMENTED. See below.
 //
-// WHY THERE IS NO scanAction. MoorAI's action surface is not a library call: it is the PreToolUse hook
-// (cli/moorai-hook.mjs) run as a subprocess against a sandboxed HOME, with an org policy planted in a
-// cache. Re-implementing that here would be a re-implementation, not a measurement, and pretending a
-// text scan of the prose around an action is action enforcement is exactly the reporting error this
-// benchmark exists to prevent. So `capabilities.action` is false and the harness scores vector 4
-// through its documented degraded fallback, marking every such row `degraded: true`.
+// WHY THERE IS NO scanAction, AND WHAT THAT COSTS — MEASURED, NOT ASSERTED.
 //
-// ONE SHIPPED-PATH FIDELITY FIX, AND WHY IT IS HERE. MoorAI's inbound surface is not a bare
-// engine.scan at the "output" stage: cli/moorai-hook.mjs `handlePostToolUse` scans ingested content at
-// "output" and then DROPS threats 65 (egress-credential-shaped) and 32 (out-code-exec) via
-// `dropOutboundOnly`, because those two are outbound-only detectors and nothing is leaving the device
-// on an inbound page. That suppression is load-bearing, not cosmetic — the hook's own comment records
-// #32 firing on 62 of 158 benign fetched pages. An adapter that skipped it would publish a
-// false-positive rate the shipped product does not have. So the same two ids are dropped here, at the
-// "output" stage only, exactly as the hook does. Set MOORAI_ADAPTER_RAW_OUTPUT=1 to turn the
-// suppression off and see the raw-engine numbers instead.
+// MoorAI's action surface is not a library call: it is the PreToolUse hook (cli/moorai-hook.mjs) run
+// as a subprocess against a sandboxed HOME, with an org policy planted in a cache and credential
+// fixtures on disk. Re-implementing that here would be a re-implementation, not a measurement, and
+// pretending a text scan of the prose around an action is action enforcement is exactly the reporting
+// error this benchmark exists to prevent. So `capabilities.action` is false and the harness scores
+// vector 4 through its documented degraded fallback, marking every such row `degraded: true`.
 //
-// WHAT THIS ADAPTER DOES **NOT** REPRODUCE, stated so the number is not read as more than it is. The
-// same `dropOutboundOnly` call also consults `INBOUND_GATES` — per-threat predicates (currently for
-// threats 15 and 17) that keep a finding only when the ingested text also matches an egress-shaped
-// pattern. Those live as private module state inside cli/moorai-hook.mjs, which cannot be imported
-// without executing the hook, so they are NOT replicated here. The consequence is one-directional and
-// worth saying plainly: this adapter's INBOUND (stage "output") false-positive rate is an UPPER BOUND
-// on what MoorAI's shipped hook produces, never an under-count. Recall is unaffected — a gate can only
-// remove findings.
+// THIS IS NOT FIXED HERE, and the size of the gap is stated rather than left to the reader. MoorAI's
+// own `scripts/score-vector24.mjs` spawns the real hook against the SAME 57 attacks / 24 benign
+// controls (byte-for-byte the same samples; only JSON formatting differs). Run on 2026-09-07 against
+// checkout c6439a3:
+//
+//   posture                                  stopped (deny/ask)   benign FP
+//   real hook, unenrolled                          0/57   0.0%      0/24
+//   real hook, enrolled, no org policy            18/57  31.6%      1/24    <- same posture as below
+//   real hook, offline fail-closed                49/57  86.0%     11/24
+//   real hook, enforcing org policy               43/57  75.4%      3/24
+//
+//   this adapter, flattened text, no org policy   20/57  35.1% prevented, 36/57 63.2% detected, 3/24 FP
+//
+// Read that carefully, because the deviation is NOT one-directional and the earlier one-line caveat
+// implied it was:
+//   * PREVENTION is the comparable column. The flattening lands within 2 samples of the real hook at
+//     the same posture (20/57 vs 18/57), so the published vector-4 prevention figure is roughly
+//     right — by luck of the corpus, not by construction.
+//   * DETECTION (36/57) has NO real-hook analogue: the hook's decision channel carries only deny/ask,
+//     and its `notify` findings go out-of-band to the alert wire. A "63.2% caught" from this harness
+//     and a "31.6% stopped" from the hook are two different questions.
+//   * The TENANT-POLICY deviation is the large one: 18/57 -> 43/57 under an enforcing org policy,
+//     +25 attacks stopped, for 1/24 -> 3/24 benign. Prevention here really is understated, by about
+//     that much. That deviation is now a PARAMETER, not a limitation — see MOORAI_POLICY below.
+//
+// THE SHIPPED INBOUND PATH, REPLICATED IN FULL. MoorAI's inbound surface is not a bare engine.scan at
+// the "output" stage. cli/moorai-hook.mjs `handlePostToolUse` scans ingested content at "output" and
+// then calls `dropOutboundOnly(raw, new Set([65, 32]), policy, text)`, which does TWO things:
+//
+//   1. DROPS threats 65 (egress-credential-shaped) and 32 (out-code-exec) unconditionally. They are
+//      outbound-only detectors and nothing is leaving the device on an inbound page. The hook's own
+//      comment records #32 firing on 62 of 158 benign fetched pages and catching zero attacks
+//      uniquely.
+//   2. GATES threats 15 (dlp-email) and 17 (out-links) through `INBOUND_GATES` — per-threat
+//      predicates that keep the finding only when the ingested text ALSO looks egress-shaped: an
+//      address in a header/verb position for #15, a link that is the object of an instruction for
+//      #17. The hook records #17 ungated at 38.0% FP and gated at 21.5% on the same corpus.
+//
+// Both are load-bearing, and an adapter that replicated only the first would publish an inbound
+// false-positive rate the shipped product does not have. Earlier versions of this adapter did exactly
+// that, and said so — the gates were "private module state that cannot be imported without executing
+// the hook", so the inbound number was published as an UPPER BOUND rather than a measurement.
+//
+// That is now fixed, and NOT by importing: the predicates are copied literally below, and `init()`
+// re-reads `cli/moorai-hook.mjs` from the checkout and asserts that this copy's regex sources are
+// still byte-identical to the ones in the hook, in order (see assertGateFidelity). A copy that has
+// drifted from the shipped hook FAILS THE RUN with an actionable message instead of quietly
+// publishing a stale number. The same check covers OUTBOUND_ONLY_THREATS.
+//
+// Set MOORAI_ADAPTER_RAW_OUTPUT=1 to turn the whole inbound reconciliation off and see the raw-engine
+// numbers instead. That is the upper bound the adapter used to publish, kept as a diagnostic.
 //
 // WHAT `action` MEANS HERE. Prevention is derived from `threatActionFor(policy, threatId)` — the same
 // function MoorAI's shipped hook enforces with — under the BUILTIN-DEFAULT posture (policy = null,
 // i.e. a device with no org policy at all). It is never derived from the fact that a detector fired,
 // and never from a detector's own `mode`, because the enforcement path ignores that field.
+//
+// MOORAI_POLICY=/path/to/policy.json swaps that null for a real org policy, so an enforcing tenant
+// posture can be scored instead of only the out-of-the-box one. The file is passed to the SAME
+// `threatActionFor`, so its `threatPolicy` / `tierPolicy` keys mean exactly what they mean in the
+// product. The DEFAULT stays null on purpose: a policy is a per-tenant configuration choice, and a
+// headline measured under a policy the maintainer wrote for the occasion is a number about that
+// policy. Anything published with MOORAI_POLICY set must say so and name the policy.
 import { readFileSync, existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { join, isAbsolute, resolve } from "node:path";
@@ -77,15 +119,129 @@ function repoRoot() {
   return root;
 }
 
-// The two outbound-only threat ids the shipped hook suppresses on INGESTED content. Kept as a literal
-// set with the citation above rather than imported, so this adapter stays a read-only consumer of the
-// MoorAI checkout and cannot break when that file moves.
+// ---------------------------------------------------------------------------------------------
+// The inbound reconciliation, copied from cli/moorai-hook.mjs `handlePostToolUse` /
+// `dropOutboundOnly`. Copied rather than imported: importing that module EXECUTES the hook (it reads
+// stdin and writes a hook envelope), so it is not loadable as a library. The copy is verified against
+// the checkout at init() — see assertGateFidelity — so "copied" does not mean "allowed to drift".
+// ---------------------------------------------------------------------------------------------
+
+// Dropped unconditionally on ingested content.
+//   cli/moorai-hook.mjs: const OUTBOUND_ONLY_THREATS = new Set([65, 32]);
 const OUTBOUND_ONLY_THREATS = new Set([65, 32]);
+
+// Kept only when the ingested text is also egress-shaped.
+//   cli/moorai-hook.mjs: const INBOUND_GATES = { 15: ..., 17: ... }
+// VERBATIM. Do not "tidy" these — assertGateFidelity compares `.source` and `.flags` against the
+// literals in the checkout and fails the run on any difference, including a reordering.
+const INBOUND_GATES = {
+  15: [
+    /^[ \t]{0,3}(?:from|to|cc|bcc|reply-to|organizer|sender)[ \t]*:[^\n]{0,120}@/im,
+    /\b(?:send|email|e-mail|forward|cc|bcc|report|deliver|mail|exfiltrate|transmit)\b[^\n]{0,80}@/i
+  ],
+  17: [
+    /\b(?:send|post|upload|exfiltrate|transmit|deliver|report|submit|forward|curl|wget|fetch)\b[^\n]{0,80}https?:\/\//i,
+    /https?:\/\/[^\s]{0,120}\?[^\s]{0,80}=(?:\$|\{\{|%7B)/i,
+    /\b(?:migrate|switch|point|redirect|repoint|move)\b[^\n]{0,40}\bto\b[^\n]{0,40}https?:\/\//i,
+    /\b(?:retry|re-?run|reissue|authenticate|register|install|download|pull|clone)\b[^\n]{0,60}https?:\/\//i,
+    /--?(?:registry|index-url|repo|remote|endpoint|host|url)[ =]https?:\/\//i,
+    /!\[[^\]]{0,60}\]\(https?:\/\//i
+  ]
+};
+
+// The hook's predicate is a disjunction over that threat's patterns; a threat with no gate is kept.
+const gatePasses = (threatId, text) => {
+  const pats = INBOUND_GATES[threatId];
+  return pats ? pats.some((re) => re.test(text)) : true;
+};
+
+// Read the two constants back out of the checkout and assert this file still matches them.
+//
+// WHY TEXT AND NOT AN IMPORT: cli/moorai-hook.mjs runs its whole hook on import. So the fidelity
+// check is a source-text comparison of the REGEX LITERALS inside the `INBOUND_GATES` block and the
+// ids inside the `OUTBOUND_ONLY_THREATS` set. It is deliberately strict: order, source and flags all
+// have to match. A benchmark that silently kept scoring after the product's suppression logic
+// changed would publish a number for a build that no longer exists.
+function assertGateFidelity(root) {
+  const path = join(root, "cli", "moorai-hook.mjs");
+  const src = readFileSync(path, "utf8");
+  const fail = (what) => {
+    throw new Error(
+      `${path} no longer matches this adapter's copy of the shipped inbound reconciliation.\n` +
+      `  ${what}\n` +
+      "  scorers/adapters/moorai.mjs replicates handlePostToolUse's OUTBOUND_ONLY_THREATS and\n" +
+      "  INBOUND_GATES literally, because that module executes its hook on import and cannot be\n" +
+      "  imported as a library. Re-copy them from the hook and re-run, or the published inbound\n" +
+      "  false-positive rate describes a build that no longer exists."
+    );
+  };
+
+  const setBlock = src.match(/const OUTBOUND_ONLY_THREATS = new Set\(\[([^\]]*)\]\)/);
+  if (!setBlock) fail("could not find `const OUTBOUND_ONLY_THREATS = new Set([...])` in the hook.");
+  const hookIds = setBlock[1].split(",").map((s) => Number(s.trim())).filter((n) => Number.isFinite(n));
+  const mineIds = [...OUTBOUND_ONLY_THREATS];
+  if (hookIds.length !== mineIds.length || hookIds.some((n, i) => n !== mineIds[i])) {
+    fail(`OUTBOUND_ONLY_THREATS: hook has [${hookIds}], this adapter has [${mineIds}].`);
+  }
+
+  const gateBlock = src.match(/const INBOUND_GATES = \{[\s\S]*?\n\};/);
+  if (!gateBlock) fail("could not find the `const INBOUND_GATES = { ... };` block in the hook.");
+  // Per-threat: everything from `<id>:` up to the next `<id>:` or the closing brace.
+  for (const [id, pats] of Object.entries(INBOUND_GATES)) {
+    const per = gateBlock[0].match(new RegExp(`\\n\\s*${id}:\\s*\\(t\\)[\\s\\S]*?(?=\\n\\s*\\d+:\\s*\\(t\\)|\\n\\};)`));
+    if (!per) fail(`INBOUND_GATES has no entry for threat ${id} in the hook.`);
+    // Regex literals appear only as `/…/flags.test(t)` in this block, which makes them unambiguous
+    // to lift without parsing JavaScript.
+    const hookPats = [...per[0].matchAll(/\/((?:\\.|\[(?:\\.|[^\]])*\]|[^/\\\n])+)\/([a-z]*)\.test\(t\)/g)]
+      .map((m) => `/${m[1]}/${m[2]}`);
+    const minePats = pats.map((re) => `/${re.source}/${re.flags}`);
+    if (hookPats.length !== minePats.length) {
+      fail(`INBOUND_GATES[${id}]: hook has ${hookPats.length} pattern(s), this adapter has ${minePats.length}.`);
+    }
+    for (let i = 0; i < minePats.length; i++) {
+      if (hookPats[i] !== minePats[i]) {
+        fail(`INBOUND_GATES[${id}] pattern ${i}:\n    hook    ${hookPats[i]}\n    adapter ${minePats[i]}`);
+      }
+    }
+  }
+  // Also assert the two are actually WIRED to the PostToolUse path, not merely defined. A hook that
+  // stopped calling dropOutboundOnly would leave both constants intact and every check above green.
+  if (!/dropOutboundOnly\(raw, OUTBOUND_ONLY_THREATS, policy, text\)/.test(src)) {
+    fail("handlePostToolUse no longer calls dropOutboundOnly(raw, OUTBOUND_ONLY_THREATS, policy, text).");
+  }
+  if (!/const gate = INBOUND_GATES\[f\.threatId\];/.test(src)) {
+    fail("dropOutboundOnly no longer consults INBOUND_GATES per finding.");
+  }
+}
 
 let engine = null;
 let threatActionFor = null;
 let runAgentDetections = null;
 let version = "unknown";
+// null = BUILTIN-DEFAULT posture (no org policy). Replaced by MOORAI_POLICY, if set.
+let policy = null;
+let policySource = null;
+
+// Load the optional org policy. Parsed here and handed straight to MoorAI's own threatActionFor, so
+// this file never interprets a policy field itself.
+function loadPolicy() {
+  const spec = process.env.MOORAI_POLICY;
+  if (!spec) return { policy: null, source: null };
+  const path = isAbsolute(spec) ? spec : resolve(process.cwd(), spec);
+  if (!existsSync(path)) {
+    throw new Error(`MOORAI_POLICY="${spec}" does not exist (resolved to ${path}).`);
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync(path, "utf8"));
+  } catch (e) {
+    throw new Error(`MOORAI_POLICY="${path}" is not valid JSON: ${e && e.message ? e.message : e}`);
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`MOORAI_POLICY="${path}" must contain a JSON object (a MoorAI org policy).`);
+  }
+  return { policy: parsed, source: path };
+}
 
 export default {
   name: "moorai",
@@ -116,16 +272,28 @@ export default {
     engine = new mods.engine.DetectionEngine(threats, mods.detectors.DETECTORS, mods.contentRules.CONTENT_RULES);
     threatActionFor = mods.hookCore.threatActionFor;
     runAgentDetections = mods.baseline.runAgentDetections;
+    if (!process.env.MOORAI_ADAPTER_RAW_OUTPUT) assertGateFidelity(root);
+    ({ policy, source: policySource } = loadPolicy());
+    // Loud on purpose. A run under an enforcing org policy is a DIFFERENT measurement from the
+    // out-of-the-box one, and the difference is large (see the header table). Nobody should be able
+    // to produce that number without it appearing in their own terminal.
+    if (policySource) {
+      process.stderr.write(
+        `moorai adapter: enforcing org policy loaded from ${policySource}.\n` +
+        "  Prevention is derived under THAT policy, not the built-in default. Say so when publishing.\n"
+      );
+    }
     try { version = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version || "unknown"; } catch { /* keep "unknown" */ }
     this.version = version;
   },
 
   async scanText(text, stage) {
     const st = stage || "prompt";
-    const findings = toFindings(engine.scan(String(text ?? ""), st));
+    const t = String(text ?? "");
+    const findings = toFindings(engine.scan(t, st));
     if (st === "output" && !process.env.MOORAI_ADAPTER_RAW_OUTPUT) {
-      // cli/moorai-hook.mjs handlePostToolUse -> dropOutboundOnly(raw, new Set([65, 32]), ...)
-      return findings.filter((f) => !OUTBOUND_ONLY_THREATS.has(f.id));
+      // cli/moorai-hook.mjs handlePostToolUse -> dropOutboundOnly(raw, OUTBOUND_ONLY_THREATS, policy, text)
+      return findings.filter((f) => !OUTBOUND_ONLY_THREATS.has(f.id) && gatePasses(f.id, t));
     }
     return findings;
   },
@@ -156,8 +324,9 @@ function toFindings(findings) {
       id,
       category: f.detectorId ? String(f.detectorId) : null,
       severity: f?.threat?.riskLevel ? String(f.threat.riskLevel) : null,
-      // BUILTIN-DEFAULT posture: no org policy. Same function the shipped PreToolUse hook enforces with.
-      action: threatActionFor(null, id)
+      // Same function the shipped PreToolUse hook enforces with, under the same posture: BUILTIN
+      // DEFAULT (policy === null) unless MOORAI_POLICY named a real org policy.
+      action: threatActionFor(policy, id)
     });
   }
   return out;
