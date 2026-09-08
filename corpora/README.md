@@ -38,14 +38,14 @@ Any sample proposed through the issue forms must supply this statement. See `../
 | File | Attacks | Benign | AMTSO vector | Harness |
 |---|--:|--:|---|---|
 | `vector2-indirect-content.json` | 45 | 17 | 2 — indirect / content-mediated injection | `text` |
-| `vector3-supply-chain.json` | 72 | 25 | 3 — tool, skill, extension & MCP supply chain | `text` (tool/file/index stages) |
+| `vector3-supply-chain.json` | 85 | 28 | 3 — tool, skill, extension & MCP supply chain | `text` (tool/file/index/output/prompt stages) |
 | `vector4-outbound-action.json` | 57 | 24 | 4 — outbound action / agent-initiated effect | `action` |
 | `vector5-memory-crossagent.json` | 42 | 25 | 5 — memory, context & cross-agent propagation | `text`, `steps`, `session`, `events` |
 | `heldout-v2-tune.json` | 61 | 25 | 1 — direct input (family-keyed) | `text` (one `turns` sample each side) |
 | `benign-corpus-v2.json` | — | 610 | precision denominator | `text` |
 | `benign-web-content-tune.json` | 9 ⚠️ | 149 | precision denominator, `output` stage | `text` |
 
-Totals: **286 attack samples, 875 benign samples.**
+Totals: **299 attack samples, 878 benign samples.**
 
 ⚠️ Those 9 rows are a **known labelling inconsistency inherited from the source corpus** — see
 [Known gaps](#known-gaps) before you use this file. Do not quietly resolve it in your own fork; it
@@ -111,10 +111,10 @@ overstates the hard-negative total.
 | `benign-web-content-tune` | 62 | 0 |
 | `heldout-v2-tune` | 0 | 0 |
 | `vector2-indirect-content` | 16 | 17 |
-| `vector3-supply-chain` | 17 | 17 |
+| `vector3-supply-chain` | 20 | 20 |
 | `vector4-outbound-action` | 17 | 24 |
 | `vector5-memory-crossagent` | 20 | 20 |
-| **total** | **401** | **347** |
+| **total** | **404** | **350** |
 
 ---
 
