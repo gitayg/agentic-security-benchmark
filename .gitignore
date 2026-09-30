@@ -34,6 +34,8 @@ lcov.info
 scratch/
 tmp/
 out/
+# Generated Hugging Face mirror (scripts/export-hf.mjs). Rebuilt from corpora/, never committed.
+dist/
 *.out.json
 *.scratch.json
 results-*.json

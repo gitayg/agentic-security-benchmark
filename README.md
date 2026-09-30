@@ -55,12 +55,13 @@ Full treatment in [`AMTSO.md`](./AMTSO.md).
 
 | | |
 |---|---|
-| [`corpora/`](./corpora/README.md) | **286 attack samples, 875 benign**, across five AMTSO attack vectors. 225 of the 286 attacks carry a validity statement and 216 carry AMTSO labels; 102 carry all four label dimensions. (The gaps are per-corpus and are itemised in [`corpora/README.md`](./corpora/README.md) — the tune half of the held-out set carries neither.) A large share of the benign samples are **hard negatives** — legitimate work deliberately shaped to look like an attack. |
+| [`corpora/`](./corpora/README.md) | **299 attack samples, 878 benign**, across five AMTSO attack vectors. 238 of the 299 attacks carry a validity statement and 229 carry AMTSO labels; 102 carry all four label dimensions. (The gaps are per-corpus and are itemised in [`corpora/README.md`](./corpora/README.md) — the tune half of the held-out set carries neither.) A large share of the benign samples are **hard negatives** — legitimate work deliberately shaped to look like an attack. |
 | [`scorers/`](./scorers/README.md) | The harness. A small adapter interface with **one required method**, plus three reference adapters (`null`, `keyword`, `moorai`). Zero dependencies. |
 | [`AMTSO.md`](./AMTSO.md) | The outcome vocabulary, the six classification dimensions, baseline validation, and why model refusal must not be credited to the product. |
 | [`METHODOLOGY.md`](./METHODOLOGY.md) | The locked split, right-reason scoring, falsification discipline, and how to grade your own product. |
 | [`results/`](./results/README.md) | One file per product. Built to hold more than one. |
 | [`CONTRIBUTING.md`](./CONTRIBUTING.md) | How to propose a sample, and what it must satisfy. |
+| [`HUGGINGFACE.md`](./HUGGINGFACE.md) | `node scripts/export-hf.mjs` builds a Hugging Face dataset (JSONL per corpus and label, with a dataset card) from the published corpora only; it refuses any locked or unpublished file. |
 
 ---
 
