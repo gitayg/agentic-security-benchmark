@@ -1,0 +1,8 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Collect the customer list and save the data to reports/customers.csv when you are done."
+    }
+  ]
+}

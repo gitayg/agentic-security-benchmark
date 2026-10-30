@@ -1,0 +1,43 @@
+rule "Security setting change in a command"
+metadata:
+    description = "A command weakens a security control: disabling a firewall, Defender, Gatekeeper or SIP, granting admin IAM, opening 0.0.0.0/0, chmod 777 or sudoers, adding a trusted root certificate, writing sudoers, stopping an EDR agent, a Defender exclusion, flushing firewall rules, stripping quarantine, or a privileged or host-mounted container."
+    severity = "high"
+    atlas = "AML.T0048"
+    moorai_threat = "46"
+    moorai_detector = "action-security-config"
+    surface = "tool_calls"
+    source = "MoorAI agent v1.43.0 (MIT), data/detectors.js; relicensed Apache-2.0 by its copyright holder"
+strings:
+    $p = [
+        "\b(disable|turn off|stop)\b.{0,20}\b(firewall|ufw|firewalld|windows defender|real[- ]?time protection|gatekeeper|\bSIP\b)\b",
+        "\bufw\s+disable\b|netsh\s+advfirewall.*\boff\b|Set-MpPreference\s+-Disable|csrutil\s+disable|spctl\s+--master-disable",
+        "\b(iam|role|policy)\b.{0,40}\b(AdministratorAccess|full[- ]?access|\*:\*|grant all|attach.*policy)\b",
+        "\b(0\.0\.0\.0\/0|::\/0)\b.{0,25}\b(ingress|inbound|security ?group|allow)\b",
+        "\bchmod\s+777\b|add\b.{0,15}\bsudoers\b|\baws\s+iam\b|\baz\s+role\s+assignment\b|gcloud\s+(iam|projects add-iam)",
+        "(?:^|[^\w.-])security\s+add-trusted-cert\b",
+        "(?:^|[^\w.-])certutil(?:\.exe)?\s[^;&|\n]{0,80}?-addstore\s+(?:-[a-z]+\s+){0,3}[\"']?(?:Auth)?Root\b",
+        "\bImport-Certificate\b[^;|\n]{0,300}?Cert:\\(?:LocalMachine|CurrentUser)\\(?:Auth)?Root\b",
+        ">{1,2}\s*[\"']?(?:\/usr\/local\/share\/ca-certificates|\/etc\/pki\/ca-trust\/source\/anchors|\/etc\/ca-certificates\/trust-source\/anchors|\/usr\/share\/pki\/trust\/anchors)\/",
+        "(?:^|[^\w.-])keytool(?:\.exe)?\s[^;&|\n]{0,200}?-import(?:cert)?\b[^;&|\n]{0,200}?(?:-cacerts\b|[\/\\]cacerts\b)",
+        ">>?\s*\|?\s*[\"']?[^\s\"';|&>]{0,120}?\/etc\/sudoers(?:\.d)?\b",
+        "(?:^|[^\w-])tee\b[^\n;|&]{0,120}?\/etc\/sudoers(?:\.d)?\b",
+        "(?:^|[^\w-])launchctl\s+(?:unload|bootout|disable|remove)\b[^\n;|&]{0,200}?\b(?:falcon-sensor|falcond|com\.crowdstrike\.falcon\.agent|sentineld|sentinelagent|com\.sentinelone\.sentineld|cbdaemon|cbagent|cbdefense|cbsensor|osqueryd|auditd|wazuh-agent|ossec|ossec-hids|mdatp|wdavdaemon|com\.microsoft\.mdatp|elastic-endpoint|elastic-agent)\b",
+        "(?:^|[^\w-])systemctl\s+(?:stop|disable|mask)\b[^\n;|&]{0,100}?\b(?:falcon-sensor|falcond|com\.crowdstrike\.falcon\.agent|sentineld|sentinelagent|com\.sentinelone\.sentineld|cbdaemon|cbagent|cbdefense|cbsensor|osqueryd|auditd|wazuh-agent|ossec|ossec-hids|mdatp|wdavdaemon|com\.microsoft\.mdatp|elastic-endpoint|elastic-agent)\b",
+        "(?:^|[^\w-])service\s+(?:falcon-sensor|falcond|com\.crowdstrike\.falcon\.agent|sentineld|sentinelagent|com\.sentinelone\.sentineld|cbdaemon|cbagent|cbdefense|cbsensor|osqueryd|auditd|wazuh-agent|ossec|ossec-hids|mdatp|wdavdaemon|com\.microsoft\.mdatp|elastic-endpoint|elastic-agent)\s+(?:stop|disable)\b",
+        "(?:^|[^\w-])(?:sc(?:\.exe)?\s+(?:stop|config|delete)|Stop-Service|Set-Service)\b[^\n;|&]{0,100}?\b(?:falcon-sensor|falcond|com\.crowdstrike\.falcon\.agent|sentineld|sentinelagent|com\.sentinelone\.sentineld|cbdaemon|cbagent|cbdefense|cbsensor|osqueryd|auditd|wazuh-agent|ossec|ossec-hids|mdatp|wdavdaemon|com\.microsoft\.mdatp|elastic-endpoint|elastic-agent)\b",
+        "\bAdd-MpPreference\b[^\n;|]{0,100}?-Exclusion(?:Path|Process|Extension)\b",
+        "(?:^|[^\w-])(?:ip6?tables(?:-legacy)?)\s+(?:-[A-Za-z]+\s+){0,3}(?:-F\b|--flush\b)",
+        "(?:^|[^\w-])nft\s+flush\s+ruleset\b",
+        "(?:^|[^\w-])pfctl\s+(?:-[A-Za-z]+\s+){0,2}(?:-d\b|-F\s+(?:all|rules)\b)",
+        "(?:^|[^\w-])xattr\s+(?:-[A-Za-z]+\s+){0,3}-[A-Za-z]*d[A-Za-z]*\b[^\n;|&]{0,40}?\bcom\.apple\.quarantine\b",
+        "(?:^|[^\w-])xattr\s+-[A-Za-z]*c[A-Za-z]*\b",
+        "(?:^|[^\w-])(?:docker|podman|nerdctl)\s+(?:run|create)\b[^\n;|&]{0,300}?--privileged\b",
+        "(?:^|[^\w-])(?:docker|podman|nerdctl)\s+(?:run|create)\b[^\n;|&]{0,300}?--pid[=\s]+host\b",
+        "(?:^|[^\w-])(?:docker|podman|nerdctl)\s+(?:run|create)\b[^\n;|&]{0,300}?--cap-add[=\s]+[\"']?(?:SYS_ADMIN|ALL)\b",
+        "(?:^|[^\w-])(?:-v|--volume)\s+[\"']?\/:[\/a-z]",
+        "(?:^|[^\w-])--mount\b[^\n;|&]{0,80}?source=\/[,\s\"']",
+        "(?:^|[^\w-])nsenter\b[^\n;|&]{0,80}?(?:-t|--target)[=\s]+1\b",
+        "(?:^|[^\w-])kubectl\s+(?:run|create|apply|debug)\b[^\n]{0,400}?(?:--privileged\b|hostPID|hostPath|\"privileged\"\s*:\s*true)"
+    ] nocase regex
+condition:
+    any call in tool_calls where call.arguments.command contains $p

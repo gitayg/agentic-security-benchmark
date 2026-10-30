@@ -1,0 +1,31 @@
+rule "Private read, then a network call"
+metadata:
+    description = "A tool call reads a credential or secret path (or a tool result carries a credential), and within 100 timeline steps a later tool call reaches a network sink (curl, wget, nc, scp, rsync, a URL, an HTTP client call). The order MoorAI's tagRules example no-net-after-private denies: read-private, then network. Two of the three lethal-trifecta legs."
+    severity = "high"
+    atlas = "AML.T0057"
+    moorai_threat = "59"
+    moorai_tag_rule = "no-net-after-private"
+    requires = "quarry-engine"
+    source = "MoorAI agent v1.43.0 (MIT): data/tool-tags.js, data/detectors.js; relicensed Apache-2.0 by its copyright holder"
+strings:
+    $credpath = "(?:^|[\/\\])(?:\.env(?:\.[A-Za-z0-9_-]+)?|\.aws[\/\\](?:credentials|config)|\.ssh[\/\\](?:id_[a-z0-9_]+|.*_key)|\.npmrc|\.pypirc|\.git-credentials|\.netrc|_netrc|\.pgpass|\.docker[\/\\]config\.json|\.kube[\/\\]config|\.config[\/\\]gcloud[\/\\](?:credentials\.db|access_tokens\.db|application_default_credentials\.json|legacy_credentials)|\.azure[\/\\](?:accessTokens\.json|msal_token_cache\.json)|[^\/\\]+\.(?:pem|key|p12|pfx|jks|keystore|kdbx)|shadow|gshadow|master\.key|credentials\.json|secrets?\.(?:json|ya?ml|toml))$" nocase regex
+    $secret = [
+        "\b(AKIA|ASIA)[A-Z0-9]{16}\b",
+        "\bgh[posru]_[A-Za-z0-9]{36,}\b",
+        "\bgithub_pat_[A-Za-z0-9_]{22,}\b",
+        "\bAIza[A-Za-z0-9\-_]{35}\b",
+        "\bsk-(ant-|proj-)?[A-Za-z0-9\-_]{20,}\b",
+        "\bxox[baprs]-[A-Za-z0-9-]{10,}\b",
+        "\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\b",
+        "\b[Bb][Ee][Aa][Rr][Ee][Rr]\s+[A-Za-z0-9._-]{20,}",
+        "-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----"
+    ] regex
+    $sink = [
+        "\b(?:curl|wget|Invoke-WebRequest|iwr|irm|ncat|nc|scp|rsync)\b",
+        "https?:\/\/",
+        "\b(?:fetch|axios|urlopen|httpx)\b|\brequests\.(?:post|put|patch|get)\b"
+    ] nocase regex
+condition:
+    (any out in tool_calls where out.arguments.* contains $sink)
+    after(within: 100)
+    ((any rd in tool_calls where rd.arguments.* contains $credpath) or (any rs in tool_responses where rs.content contains $secret))

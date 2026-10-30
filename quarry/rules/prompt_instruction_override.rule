@@ -1,0 +1,21 @@
+rule "Instruction override in a user message"
+metadata:
+    description = "A user message tells the model to ignore or disregard its earlier instructions, reveal its system prompt, do anything now, or be jailbroken. MoorAI also drops a match framed defensively (never ignore previous instructions); that check is code, not a pattern, so this rule fires on defensive phrasing too."
+    severity = "critical"
+    atlas = "AML.T0051,AML.T0054"
+    moorai_threat = "3"
+    moorai_detector = "inj-ignore"
+    surface = "user_messages"
+    source = "MoorAI agent v1.43.0 (MIT), data/detectors.js; relicensed Apache-2.0 by its copyright holder"
+strings:
+    $p = [
+        "ignore (the |all |any )?(previous|above|prior|earlier) (instructions?|prompts?|messages?)",
+        "disregard (all |any )?(previous|prior|above|earlier)",
+        "\b(reveal|print|show) (your |the )?(system prompt|instructions|developer message)\b",
+        "\bdo anything now\b",
+        "\bjailbr(?:eak|oken|eaked)\s{1,4}(?:mode|persona|state)\b",
+        "\b(?:you(?:['’]re|\s{1,4}are|\s{1,4}have\s{1,4}been|['’]ve\s{1,4}been|\s{1,4}were|\s{1,4}will\s{1,4}be)|act(?:ing)?\s{1,4}as|pretend(?:ing)?\s{1,4}to\s{1,4}be|respond(?:ing)?\s{1,4}as|behav(?:e|ing)\s{1,4}(?:as|like)|role-?play(?:ing)?\s{1,4}as|simulat(?:e|ing)|becom(?:e|ing)|are\s{1,4}now)\s{1,4}(?:(?:now|a|an|the|fully|completely|totally|officially)\s{1,4}){0,2}jailbr(?:oken|eaked)\b",
+        "\[[^\]\n]{0,4}jailbr(?:eak|oken)[^\]\n]{0,4}\]|(?:^|\s)\/jailbr(?:eak|oken)\b"
+    ] nocase regex
+condition:
+    any msg in user_messages where msg.content contains $p

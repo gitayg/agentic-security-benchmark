@@ -1,0 +1,19 @@
+rule "Injected directive in an offered tool description"
+metadata:
+    description = "A tool offered to the model carries an injected directive in its description: a fake IMPORTANT or SYSTEM tag, a read-or-send-before-calling instruction, a do-not-tell-the-user instruction, an override of other instructions, or a secret read the tool says to do first (MCP tool poisoning)."
+    severity = "high"
+    atlas = "AML.T0051,AML.T0110"
+    moorai_threat = "60"
+    moorai_detector = "mcp-tool-poisoning"
+    requires = "quarry-engine"
+    source = "MoorAI agent v1.43.0 (MIT): data/tool-tags.js, data/detectors.js; relicensed Apache-2.0 by its copyright holder"
+strings:
+    $p = [
+        "<\/?(?:IMPORTANT|SYSTEM|SECRET|INSTRUCTIONS?|HIDDEN)>",
+        "\b(?:before|after|when|whenever|prior\s+to)\b[^.\n]{0,40}\b(?:using|calling|invoking|you\s+(?:use|call|run|invoke))\b[^.\n]{0,60}\b(?:read|cat|send|forward|include|attach|pass|exfiltrat\w*|leak|append)\b",
+        "\b(?:do\s+not|don't|never)\b[^.\n]{0,20}\b(?:tell|inform|mention|reveal|show|notify|disclose)\b[^.\n]{0,20}\b(?:the\s+)?(?:user|human|operator|caller)\b",
+        "\b(?:ignore|disregard|override)\b[^.\n]{0,30}\b(?:previous|prior|other|system|the\s+user'?s?)\b[^.\n]{0,20}\b(?:instructions?|tools?|rules?|prompts?)\b",
+        "\b(?:always|first|secretly|silently|additionally)\b[^.\n]{0,30}\b(?:call|invoke|run|use|read|send|include)\b[^.\n]{0,40}(?:\.env\b|credentials?\b|\.ssh\b|id_[a-z]+\b|api[_-]?keys?\b|secrets?\b|tokens?\b|~\/|\/etc\/)"
+    ] nocase regex
+condition:
+    any t in tools where t.description contains $p

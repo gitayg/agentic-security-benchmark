@@ -1,0 +1,19 @@
+rule "External message or webhook in a command"
+metadata:
+    description = "A command sends an external email, message or notification: an SMTP or mail-API client, a Slack, Discord or Google Chat webhook, or mail -s."
+    severity = "medium"
+    atlas = "AML.T0048"
+    moorai_threat = "47"
+    moorai_detector = "action-external-comms"
+    moorai_mode = "warn"
+    surface = "tool_calls"
+    source = "MoorAI agent v1.43.0 (MIT), data/detectors.js; relicensed Apache-2.0 by its copyright holder"
+strings:
+    $p = [
+        "\bsend\b.{0,20}\b(email|e-mail|sms|text message|notification|message)\b.{0,15}\bto\b",
+        "\b(smtp|sendgrid|mailgun|postmark|nodemailer|twilio)\b|ses\.(send|SendEmail)",
+        "hooks\.slack\.com|discord(app)?\.com\/api\/webhooks|chat\.googleapis\.com",
+        "\b(sendmail|mailx|mail)\s+-s\b"
+    ] nocase regex
+condition:
+    any call in tool_calls where call.arguments.command contains $p

@@ -1,0 +1,21 @@
+rule "Destructive cloud, database or repository call"
+metadata:
+    description = "A command or call tears down data or resources: dropDatabase or deleteMany, aws s3 rb or terminate-instances, kubectl or helm delete across a namespace, gh repo delete, git push --delete, or DELETE ... WHERE 1=1."
+    severity = "medium"
+    atlas = "AML.T0101"
+    moorai_threat = "56"
+    moorai_detector = "mcp-destructive-call"
+    surface = "tool_calls"
+    source = "MoorAI agent v1.43.0 (MIT), data/detectors.js; relicensed Apache-2.0 by its copyright holder"
+strings:
+    $p = [
+        "\b(dropDatabase|dropCollection|deleteMany|deleteAll|dropTable|truncateTable)\s*\(",
+        "\bdb\.\w+\.(drop|remove|deleteMany|deleteOne)\s*\(",
+        "\baws\s+(s3\s+rb\b|s3\s+rm\b[^\n]{0,40}--recursive|ec2\s+terminate-instances\b|rds\s+delete-db-\w+\b|dynamodb\s+delete-table\b)",
+        "\b(kubectl|helm)\s+delete\b[^\n]{0,40}(--all\b|-n\s+\w+|namespace\b)",
+        "\bgh\s+repo\s+delete\b",
+        "\bgit\s+push\b[^\n]{0,40}--delete\b",
+        "\bDELETE\s+FROM\s+\w+\s+WHERE\s+1\s*=\s*1\b"
+    ] nocase regex
+condition:
+    any call in tool_calls where call.arguments.command contains $p

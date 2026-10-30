@@ -1,0 +1,26 @@
+rule "Instruction embedded in a tool result"
+metadata:
+    description = "A tool result (a fetched page, a file read, an API response) carries an instruction-like directive: an override of earlier instructions, an order to the assistant to send, upload, delete or run something, a send-the-data-out phrase, an instruction in an HTML comment, a new-instructions header, a fake system or assistant label, or a fake chat role ordering a tool call."
+    severity = "high"
+    atlas = "AML.T0051,AML.T0099"
+    moorai_threat = "40"
+    moorai_detector = "inj-untrusted-directive"
+    surface = "tool_responses"
+    source = "MoorAI agent v1.43.0 (MIT), data/detectors.js; relicensed Apache-2.0 by its copyright holder"
+strings:
+    $p = [
+        "\b(?:ignore|disregard|forget|override|bypass)\b[^.\n]{0,30}\b(?:previous|prior|above|earlier|all|any|your|the)\b[^.\n]{0,24}\b(?:instructions?|rules?|guidelines?|directives?|prompts?|policy|policies)\b",
+        "\b(?:you|the\s+(?:assistant|ai|agent|model|llm|system))\s+(?:must|should|shall|will|need\s+to|are\s+(?:required|instructed)\s+to)\b[^.\n]{0,40}\b(?:ignore|exfiltrat\w*|send|forward|upload|email|leak|reveal|delete|execute|run|fetch|download)\b",
+        "\b(?:exfiltrat\w*|leak|send|forward|upload|post|transmit|email)\b[^.\n]{0,30}\b(?:the\s+)?(?:data|files?|repo|repository|secrets?|credentials?|contents?|conversation|history)\b[^.\n]{0,24}\b(?:to|out|external|offsite|https?:)\b",
+        "<!--[^>]{0,200}?\b(?:system|assistant|instruction|ignore|prompt|directive)\b[^>]{0,200}?-->",
+        "\b(?:new|updated|revised)\s+(?:instructions?|directives?|system\s+prompt|task|objective)\b\s*[:=\-]",
+        "\b(?:system|assistant|developer)\s+(?:prompt|message|instruction|note|directive)s?\s*[:=]",
+        "(?:^|[\n\"'\x60{\[(>*#|:;.!?-])\s{0,4}(?:system|assistant|developer|admin\w{0,8}|ai)\s{0,2}:\s{0,4}you\s{1,3}(?:must|should|shall|will|(?:need|have|are\s{1,3}(?:required|instructed))\s{1,3}to)\s{1,3}(?:(?:now|also|first)\s{1,3})?(?:call|invoke|execute|export|issue|refund|transfer|send|forward|e?mail|upload|post|delete|remove|grant|approve|reveal|disclose|leak|exfiltrat\w{0,6}|disable|cancel)\b",
+        "[\[<]\s{0,2}(?:system|assistant|developer|admin)\s{0,2}[\]>]\s{0,4}(?:please\s{1,3}|you\s{1,3}(?:must|should|will|need\s{1,3}to|are\s{1,3}to)\s{1,3})?(?:call|invoke|execute|export|issue|refund|transfer|send|forward|e?mail|upload|post|delete|remove|grant|approve|reveal|disclose|leak|exfiltrat\w{0,6}|disable|cancel)\b",
+        "\b(?:note|message|instructions?)\s(?:to|for)\s(?:the\s)?(?:ai|assistant|agent|model|llm|bot)\s?:\s{0,4}(?:please\s{1,3}|you\s{1,3}(?:must|should|will|need\s{1,3}to|are\s{1,3}to)\s{1,3})?(?:call|invoke|execute|export|issue|refund|transfer|send|forward|e?mail|upload|post|delete|remove|grant|approve|reveal|disclose|leak|exfiltrat\w{0,6}|disable|cancel)\b",
+        "(?:^|[\n\"'\x60{\[(>*#|:;.!?-])\s{0,4}(?:system|assistant|developer|admin\w{0,8}|ai)\s{0,2}:[^.\n]{0,80}?\b(?:(?:call|invoke|trigger|execute|run|use)\s{1,3}(?:the\s{1,3})?(?:[a-z][a-z0-9]{0,30}(?:_[a-z0-9]{1,30}){1,4}|[\w-]{1,40}\s{1,3}(?:tool|function))|(?:with|via|using)\s{1,3}(?:the\s{1,3})?[\w-]{1,40}\s{1,3}(?:tool|function))\b",
+        "[\[<]\s{0,2}(?:system|assistant|developer|admin)\s{0,2}[\]>][^.\n]{0,80}?\b(?:(?:call|invoke|trigger|execute|run|use)\s{1,3}(?:the\s{1,3})?(?:[a-z][a-z0-9]{0,30}(?:_[a-z0-9]{1,30}){1,4}|[\w-]{1,40}\s{1,3}(?:tool|function))|(?:with|via|using)\s{1,3}(?:the\s{1,3})?[\w-]{1,40}\s{1,3}(?:tool|function))\b",
+        "\b(?:note|message|instructions?)\s(?:to|for)\s(?:the\s)?(?:ai|assistant|agent|model|llm|bot)\s?:[^.\n]{0,80}?\b(?:(?:call|invoke|trigger|execute|run|use)\s{1,3}(?:the\s{1,3})?(?:[a-z][a-z0-9]{0,30}(?:_[a-z0-9]{1,30}){1,4}|[\w-]{1,40}\s{1,3}(?:tool|function))|(?:with|via|using)\s{1,3}(?:the\s{1,3})?[\w-]{1,40}\s{1,3}(?:tool|function))\b"
+    ] nocase regex
+condition:
+    any r in tool_responses where r.content contains $p

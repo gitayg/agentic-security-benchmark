@@ -60,8 +60,8 @@ half a result.
 ## Provenance
 
 All seven files were authored in the [MoorAI agent](https://github.com/gitayg/moorai) repository
-(AGPL-3.0) and are republished here under Apache-2.0 by their copyright holder, so that a competitor
-can run their own product through them without inheriting AGPL obligations. See `../NOTICE`.
+(MIT) and are republished here under Apache-2.0 by their copyright holder, so that a competitor
+can run their own product through them without inheriting obligations from it. See `../NOTICE`.
 
 **Every sample's content is unmodified.** One thing has been changed: `benign-corpus-v2.json`'s ids
 were re-prefixed `v2-` → `bcv2-`, because upstream that prefix meant "benign corpus v2" while

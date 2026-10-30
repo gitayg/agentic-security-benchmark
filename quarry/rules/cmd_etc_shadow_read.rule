@@ -1,0 +1,14 @@
+rule "Shadow password file in a command"
+metadata:
+    description = "A command names /etc/shadow, the local password hash file. Case-sensitive, as in MoorAI."
+    severity = "high"
+    atlas = "AML.T0098"
+    moorai_threat = "55"
+    moorai_detector = "cred-file-access"
+    moorai_mode = "warn"
+    surface = "tool_calls"
+    source = "MoorAI agent v1.43.0 (MIT), data/detectors.js; relicensed Apache-2.0 by its copyright holder"
+strings:
+    $p = "(^|[\s\"'=])\/etc\/shadow\b" regex
+condition:
+    any call in tool_calls where call.arguments.command contains $p

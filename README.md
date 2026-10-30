@@ -62,6 +62,7 @@ Full treatment in [`AMTSO.md`](./AMTSO.md).
 | [`results/`](./results/README.md) | One file per product. Built to hold more than one. |
 | [`CONTRIBUTING.md`](./CONTRIBUTING.md) | How to propose a sample, and what it must satisfy. |
 | [`HUGGINGFACE.md`](./HUGGINGFACE.md) | `node scripts/export-hf.mjs` builds a Hugging Face dataset (JSONL per corpus and label, with a dataset card) from the published corpora only; it refuses any locked or unpublished file. |
+| [`quarry/`](./quarry/README.md) | A [Project Quarry](https://github.com/cisco-ai-defense/project-quarry) rule pack: 24 rules translated from MoorAI's open detector patterns (credential formats, prompt-injection phrasing, dangerous commands, plus three rules that need Quarry's engine), each with a matching and a benign conversation. |
 
 ---
 
@@ -140,14 +141,30 @@ split. See [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
 ---
 
+## Quarry rule pack
+
+[`quarry/`](./quarry/README.md) holds detection rules for
+[Project Quarry](https://github.com/cisco-ai-defense/project-quarry), an open rule language for finding
+agent behaviour in a recorded conversation. The 21 rules in `quarry/rules/` are MoorAI's own patterns for
+credential formats, prompt-injection phrasing in prompts and tool results, and dangerous shell commands,
+in the simplest Quarry forms. 9 of them also import into MoorAI policy (they carry `moorai_mode`); the
+other 12 are refused by MoorAI's ReDoS guard for imported patterns and already run on every MoorAI agent
+as built-in detectors. The 3 rules in `quarry/rules/flow/` use event order and offered tool descriptions
+and need Quarry's engine. Each rule names its MoorAI threat
+id and MITRE ATLAS technique. `node --test` checks every rule against its paired conversations without
+Quarry; [`quarry/README.md`](./quarry/README.md) gives the Quarry commands, the pinned Quarry version,
+and every pattern that was rewritten or left out.
+
+---
+
 ## Licensing: two separate projects
 
 **This benchmark is Apache-2.0.** That is deliberate. Competitors must be able to run their own
 products through it, and publish the results, without inheriting a copyleft obligation. A benchmark
 nobody but its author can safely use is not infrastructure.
 
-The corpora and harness originated in the **MoorAI agent**, which is **AGPL-3.0** and is a **separate
-project**. Nothing here imposes AGPL obligations on a product under test. See [`NOTICE`](./NOTICE).
+The corpora and harness originated in the **MoorAI agent**, which is **MIT** and is a **separate
+project**. Nothing here imposes obligations from that project on a product under test. See [`NOTICE`](./NOTICE).
 
 ---
 

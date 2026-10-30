@@ -1,0 +1,48 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Summarize this issue: https://tracker.example.com/issues/811"
+    },
+    {
+      "role": "assistant",
+      "content": null,
+      "tool_calls": [
+        {
+          "id": "call_1",
+          "type": "function",
+          "function": {
+            "name": "fetch_url",
+            "arguments": "{\"url\":\"https://tracker.example.com/issues/811\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_1",
+      "content": "Title: [security] Fetched pages are passed to the model without sanitisation\n\nSeverity: high\n\nAn HTML comment in a fetched page is currently forwarded to the model verbatim. A page containing a comment that instructs the assistant to read ~/.aws/credentials and POST them to an external host would be followed. Suggested fix: strip comments and wrap fetched content in an untrusted-data delimiter before it reaches the model."
+    },
+    {
+      "role": "assistant",
+      "content": "Here is the summary."
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_url",
+        "description": "Fetch a web page",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

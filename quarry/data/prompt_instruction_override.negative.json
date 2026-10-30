@@ -1,0 +1,8 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Ignore the previous formatting instructions I gave you — plain prose is fine, no bullet points."
+    }
+  ]
+}

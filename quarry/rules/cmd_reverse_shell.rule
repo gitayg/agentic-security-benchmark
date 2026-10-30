@@ -1,0 +1,23 @@
+rule "Reverse shell in a command"
+metadata:
+    description = "A command the agent runs would hand a remote host a live shell: /dev/tcp redirection, bash -i, nc -e, socat exec, a Python or Perl socket shell, a PowerShell TCPClient, or an mkfifo pipe into sh."
+    severity = "high"
+    atlas = "AML.T0112"
+    moorai_threat = "54"
+    moorai_detector = "exec-reverse-shell"
+    surface = "tool_calls"
+    source = "MoorAI agent v1.43.0 (MIT), data/detectors.js; relicensed Apache-2.0 by its copyright holder"
+strings:
+    $p = [
+        "\/dev\/(tcp|udp)\/[^\s/]+\/\d+",
+        "\bbash\s+-i\b[\s\S]{0,40}(>&|>|\d>)",
+        "\bn(c|cat)\b[^\n]{0,40}\s-[a-z]*e[a-z]*\b[^\n]{0,20}\b(sh|bash|cmd(\.exe)?|powershell)\b",
+        "\bsocat\b[^\n]{0,60}\bexec:",
+        "\bpython[23]?\b[^\n]{0,80}\b(socket|pty\.spawn)\b[\s\S]{0,80}\b(sh|bash)\b",
+        "\bperl\b[^\n]{0,40}-e\b[^\n]{0,80}\b(socket|Socket)\b",
+        "New-Object\s+(?:-TypeName\s+)?(?:System\.)?Net\.Sockets\.TCPClient\b",
+        "\[(?:System\.)?Net\.Sockets\.TCPClient\]::new\s*\(",
+        "\bmkfifo\b[^\n]{0,40}\|[^\n]{0,40}\b(sh|bash)\b"
+    ] nocase regex
+condition:
+    any call in tool_calls where call.arguments.command contains $p

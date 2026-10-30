@@ -1,0 +1,23 @@
+rule "Install from an untrusted source"
+metadata:
+    description = "A command installs code from an untrusted source: a remote script piped into a shell, pip, npm, cargo, go or gem from a URL, git or alternative index, npx -y, a PowerShell download piped into iex, or an editor extension from a URL or a .vsix file."
+    severity = "high"
+    atlas = "AML.T0010"
+    moorai_threat = "57"
+    moorai_detector = "pkg-install-untrusted"
+    surface = "tool_calls"
+    source = "MoorAI agent v1.43.0 (MIT), data/detectors.js; relicensed Apache-2.0 by its copyright holder"
+strings:
+    $p = [
+        "\b(curl|wget)\b[^\n]{0,120}\|\s*(sudo\s+)?(ba)?sh\b",
+        "\bpip3?\s+install\b[^\n]{0,80}(git\+|https?:\/\/|--index-url|--extra-index-url|--trusted-host)",
+        "\b(npm|pnpm|yarn)\s+(install|add|i)\b[^\n]{0,80}(git\+|github:|https?:\/\/|file:)",
+        "\b(cargo|go)\s+install\b[^\n]{0,80}(git|https?:\/\/)",
+        "\bgem\s+install\b[^\n]{0,80}--source\b[^\n]{0,40}https?:\/\/",
+        "\bnpx\s+(-y|--yes)\b",
+        "\bpowershell\b[^\n]{0,80}\b(iwr|Invoke-WebRequest|irm)\b[^\n]{0,60}\|\s*(iex|Invoke-Expression)\b",
+        "(?:^|[^\w-])(?:code|code-insiders|cursor|windsurf|codium|vscodium)\b[^\n;|&]{0,60}?--install-extension\s+[\"']?(?:https?:\/\/|[^\s\"';|&]{0,200}?\.vsix\b)",
+        "(?:^|[^\w-])(?:cp|mv|unzip|tar|bsdtar|ditto|Copy-Item|Expand-Archive|Move-Item)\b[^\n;|&]{0,200}?[\/\\]\.(?:vscode|vscode-server|vscode-insiders|cursor|windsurf)[\/\\]extensions\b"
+    ] nocase regex
+condition:
+    any call in tool_calls where call.arguments.command contains $p

@@ -1,0 +1,19 @@
+rule "Hidden instructions in pasted content"
+metadata:
+    description = "Text in a user message carries instructions aimed at the AI that would act when the content is read: a conditional directive to the assistant, an instruction inside an HTML comment, a fake system or assistant prompt label, or a new-instructions header."
+    severity = "high"
+    atlas = "AML.T0051"
+    moorai_threat = "40"
+    moorai_detector = "idx-hidden-instructions"
+    surface = "user_messages"
+    source = "MoorAI agent v1.43.0 (MIT), data/detectors.js; relicensed Apache-2.0 by its copyright holder"
+strings:
+    $p = [
+        "\b(when|once|if|after)\s+(you|the\s+(ai|assistant|agent|model|llm|system))\b[^.]{0,60}\b(ignore|disregard|instead|execute|run|fetch|send|exfiltrat|reveal|forward|email|upload)\b",
+        "<!--[^>]*\b(system|assistant|instruction|ignore|prompt)\b[^>]*-->",
+        "\b(system|assistant)\s+(prompt|message|instruction)s?\s*[:=]",
+        "\bnew\s+(instructions?|directives?|system\s+prompt)\b\s*[:=\-]",
+        "\bAI\s+(assistant|agent|model)\s*:\s*(ignore|from now|you\s+(are|must|will))"
+    ] nocase regex
+condition:
+    any msg in user_messages where msg.content contains $p

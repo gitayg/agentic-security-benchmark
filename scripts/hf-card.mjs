@@ -164,7 +164,7 @@ meaningful for a product sharing that id space.
 ## How the samples were produced
 
 Every sample is **authored**, not captured from live traffic. All seven files were authored in the
-[MoorAI agent](https://github.com/gitayg/moorai) repository (AGPL-3.0) and are republished under
+[MoorAI agent](https://github.com/gitayg/moorai) repository (MIT) and are republished under
 Apache-2.0 by their copyright holder. Sample content is unmodified; the one change is that
 \`benign-corpus-v2\`'s ids were re-prefixed \`v2-\` → \`bcv2-\` to end an id collision with the vector-2
 corpus.
@@ -212,7 +212,7 @@ outside the seven published corpora.
 ## License and attribution
 
 Apache-2.0. \`LICENSE\` and \`NOTICE\` are included. The MoorAI agent the corpora originated in is a
-separate AGPL-3.0 project; nothing here imposes AGPL obligations on a product under test.
+separate MIT project; nothing here imposes its obligations on a product under test.
 
 ## Citation
 

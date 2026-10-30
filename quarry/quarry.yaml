@@ -1,0 +1,13 @@
+# Quarry configuration for this pack. Run from the repository root; Quarry resolves rule paths
+# against the working directory. A directory loads its top-level .rule files, so both are listed.
+config_version: 2
+rules:
+  - quarry/rules/
+  - quarry/rules/flow/
+
+rule_timeout: 5.0
+max_messages: 10_000
+max_message_size: 10_000_000
+max_tool_calls: 1_000
+max_total_size: 50_000_000
+max_timeline_items: 10_000

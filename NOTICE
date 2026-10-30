@@ -3,15 +3,22 @@ Copyright 2026 Itay Glick
 
 This product includes software and test corpora developed for the MoorAI agent
 (https://github.com/gitayg/moorai). The MoorAI agent itself is licensed under
-AGPL-3.0 and is a SEPARATE project. The corpora and harnesses in THIS repository
+MIT and is a SEPARATE project. The corpora and harnesses in THIS repository
 are relicensed by their copyright holder under Apache-2.0, deliberately, so that
 any vendor — including a competitor — can run their own product through them.
-Nothing in this repository imposes AGPL obligations on a product under test.
+Nothing in this repository imposes that project's obligations on a product under test.
 
 AMTSO is a trademark of the Anti-Malware Testing Standards Organization.
 AMTSO has not reviewed, certified or endorsed this benchmark, MoorAI, or any
 result published here. The "Guidelines for Testing of Agentic Security Products
 v1.0" are cited as published criteria that this benchmark grades against.
+
+The rule pack in quarry/ translates detector patterns from the MoorAI agent
+v1.43.0 (data/detectors.js, data/tool-tags.js), which that release licenses
+under MIT; their copyright holder relicenses them here under Apache-2.0. The
+pack is written for Project Quarry (https://github.com/cisco-ai-defense/project-quarry,
+Apache-2.0), a Cisco open-source project. No Quarry file is copied into this
+repository, and Cisco has not reviewed or endorsed the pack.
 
 OWASP is a registered trademark of the OWASP Foundation.
 ATT&CK and ATLAS are trademarks of The MITRE Corporation.

@@ -1,0 +1,8 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "How should I write a system prompt for a support bot that only answers billing questions?"
+    }
+  ]
+}

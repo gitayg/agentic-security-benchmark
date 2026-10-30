@@ -1,0 +1,8 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Summarize this email for me:\n\n<html><body>\n<!-- template: newsletter-v3 | preheader block below | do not edit -->\n<p>Your weekly summary: 12 deploys, 2 incidents, 98.9% availability.</p>\n<!-- end preheader -->\n<p>Full dashboard in the console.</p>\n</body></html>"
+    }
+  ]
+}

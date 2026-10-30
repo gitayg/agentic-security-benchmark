@@ -1,0 +1,40 @@
+rule "Destructive command"
+metadata:
+    description = "A command is destructive and hard to reverse: rm -rf, find -delete, sudo rm, a force push, git reset --hard, DROP or TRUNCATE, an unscoped DELETE, mkfs or dd onto a device, a fork bomb, or deleting shadow copies, backups and snapshots."
+    severity = "high"
+    atlas = "AML.T0101"
+    moorai_threat = "43"
+    moorai_detector = "destructive-command"
+    surface = "tool_calls"
+    source = "MoorAI agent v1.43.0 (MIT), data/detectors.js; relicensed Apache-2.0 by its copyright holder"
+strings:
+    $p = [
+        "\brm\s+-[a-z]*r[a-z]*f|\brm\s+-[a-z]*f[a-z]*r",
+        "\bfind\s[^&|\n]{0,200}?\s-delete(?:[^\w-]|$)",
+        "\bfind\s[^&|\n]{0,200}?\s-exec(?:dir)?\s{1,4}(?:sudo\s{1,4})?rm\b",
+        "(?:^|[^\w.-])vssadmin(?:\.exe)?\s+delete\s+shadows\b",
+        "(?:^|[^\w.-])wmic(?:\.exe)?\s[^;&|\n]{0,200}?\bshadowcopy\b[^;&|\n]{0,200}?\sdelete\b",
+        "\bWin32_ShadowCopy\b[^;\n]{0,200}?(?:\.Delete\s*\(|\bRemove-(?:CimInstance|WmiObject)\b)",
+        "(?:^|[^\w.-])bcdedit(?:\.exe)?\s[^;&|\n]{0,120}?\/set\b[^;&|\n]{0,120}?\b(?:recoveryenabled\s+(?:no|off|false|0)\b|bootstatuspolicy\s+ignoreallfailures\b)",
+        "(?:^|[^\w.-])reagentc(?:\.exe)?\s+[\/-]disable\b",
+        "(?:^|[^\w.-])wbadmin(?:\.exe)?\s+(?:delete\s+(?:catalog|systemstatebackup|backup)|disable\s+backup)\b",
+        "(?:^|[^\w.-])tmutil\s+(?:deletelocalsnapshots|delete|disable|disablelocal)\b",
+        "(?:^|[^\w.-])diskutil\s+(?:apfs|ap)\s+deleteSnapshot\b",
+        "(?:^|[^\w.-])zfs\s+destroy\b[^;&|\n]{0,160}?\S@",
+        "(?:^|[^\w.-])timeshift\s[^;&|\n]{0,120}?--delete(?:-all)?\b",
+        "(?:^|[^\w.-])vim-cmd\s+vmsvc\/snapshot\.remove(?:all)?\b",
+        "(?:^|[^\w.-])aws\s[^;&|\n]{0,80}?\b(?:ec2\s+delete-snapshot|rds\s+delete-db(?:-cluster)?-snapshot|backup\s+delete-(?:recovery-point|backup-vault|backup-plan))\b",
+        "(?:^|[^\w.-])gcloud\s[^;&|\n]{0,80}?\b(?:compute\s+snapshots|sql\s+backups)\s+delete\b",
+        "(?:^|[^\w.-])az\s+snapshot\s+delete\b",
+        "(?:^|[^\w.-])az\s+backup\s+protection\s+disable\b[^;&|\n]{0,200}?--delete-backup-data(?:\s+|=)true\b",
+        "\bsudo\s+rm\b",
+        "\bgit\s+push\s+(--force\b|-f\b)",
+        "\bgit\s+reset\s+--hard\b",
+        "\bdrop\s+(database|table|schema)\b",
+        "\btruncate\s+table\b",
+        "\bdelete\s+from\s+\w+\s*;?\s*$",
+        "\b(mkfs|diskutil\s+erase|dd\s+if=\S+\s+of=\/dev\/)",
+        ":\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:"
+    ] nocase regex
+condition:
+    any call in tool_calls where call.arguments.command contains $p

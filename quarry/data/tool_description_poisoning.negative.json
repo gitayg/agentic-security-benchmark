@@ -1,0 +1,34 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Clean the workspace."
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "cleanup_workspace",
+        "description": "Removes build artefacts under ./dist and ./.cache. Asks for confirmation before deleting anything outside those paths.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "default": "./dist"
+            },
+            "recursive": {
+              "type": "boolean",
+              "default": false
+            },
+            "confirm": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        }
+      }
+    }
+  ]
+}

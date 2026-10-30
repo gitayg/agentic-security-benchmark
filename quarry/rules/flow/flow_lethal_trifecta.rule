@@ -1,0 +1,48 @@
+rule "Lethal trifecta: private read, untrusted instruction, then a network call"
+metadata:
+    description = "A session holds all three legs before a callout: a private read (a credential path in a tool call, or a credential in a tool result), untrusted content carrying an instruction (a tool result with an injected directive), and then a tool call to a network sink. Each leg is within 100 timeline steps of a callout after it; the latest such callout follows both. MoorAI reports #59 when a session first holds all three legs."
+    severity = "high"
+    atlas = "AML.T0057"
+    moorai_threat = "59"
+    requires = "quarry-engine"
+    source = "MoorAI agent v1.43.0 (MIT): data/tool-tags.js, data/detectors.js; relicensed Apache-2.0 by its copyright holder"
+strings:
+    $credpath = "(?:^|[\/\\])(?:\.env(?:\.[A-Za-z0-9_-]+)?|\.aws[\/\\](?:credentials|config)|\.ssh[\/\\](?:id_[a-z0-9_]+|.*_key)|\.npmrc|\.pypirc|\.git-credentials|\.netrc|_netrc|\.pgpass|\.docker[\/\\]config\.json|\.kube[\/\\]config|\.config[\/\\]gcloud[\/\\](?:credentials\.db|access_tokens\.db|application_default_credentials\.json|legacy_credentials)|\.azure[\/\\](?:accessTokens\.json|msal_token_cache\.json)|[^\/\\]+\.(?:pem|key|p12|pfx|jks|keystore|kdbx)|shadow|gshadow|master\.key|credentials\.json|secrets?\.(?:json|ya?ml|toml))$" nocase regex
+    $secret = [
+        "\b(AKIA|ASIA)[A-Z0-9]{16}\b",
+        "\bgh[posru]_[A-Za-z0-9]{36,}\b",
+        "\bgithub_pat_[A-Za-z0-9_]{22,}\b",
+        "\bAIza[A-Za-z0-9\-_]{35}\b",
+        "\bsk-(ant-|proj-)?[A-Za-z0-9\-_]{20,}\b",
+        "\bxox[baprs]-[A-Za-z0-9-]{10,}\b",
+        "\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\b",
+        "\b[Bb][Ee][Aa][Rr][Ee][Rr]\s+[A-Za-z0-9._-]{20,}",
+        "-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----"
+    ] regex
+    $directive = [
+        "\b(?:ignore|disregard|forget|override|bypass)\b[^.\n]{0,30}\b(?:previous|prior|above|earlier|all|any|your|the)\b[^.\n]{0,24}\b(?:instructions?|rules?|guidelines?|directives?|prompts?|policy|policies)\b",
+        "\b(?:you|the\s+(?:assistant|ai|agent|model|llm|system))\s+(?:must|should|shall|will|need\s+to|are\s+(?:required|instructed)\s+to)\b[^.\n]{0,40}\b(?:ignore|exfiltrat\w*|send|forward|upload|email|leak|reveal|delete|execute|run|fetch|download)\b",
+        "\b(?:exfiltrat\w*|leak|send|forward|upload|post|transmit|email)\b[^.\n]{0,30}\b(?:the\s+)?(?:data|files?|repo|repository|secrets?|credentials?|contents?|conversation|history)\b[^.\n]{0,24}\b(?:to|out|external|offsite|https?:)\b",
+        "<!--[^>]{0,200}?\b(?:system|assistant|instruction|ignore|prompt|directive)\b[^>]{0,200}?-->",
+        "\b(?:new|updated|revised)\s+(?:instructions?|directives?|system\s+prompt|task|objective)\b\s*[:=\-]",
+        "\b(?:system|assistant|developer)\s+(?:prompt|message|instruction|note|directive)s?\s*[:=]",
+        "(?:^|[\n\"'\x60{\[(>*#|:;.!?-])\s{0,4}(?:system|assistant|developer|admin\w{0,8}|ai)\s{0,2}:\s{0,4}you\s{1,3}(?:must|should|shall|will|(?:need|have|are\s{1,3}(?:required|instructed))\s{1,3}to)\s{1,3}(?:(?:now|also|first)\s{1,3})?(?:call|invoke|execute|export|issue|refund|transfer|send|forward|e?mail|upload|post|delete|remove|grant|approve|reveal|disclose|leak|exfiltrat\w{0,6}|disable|cancel)\b",
+        "[\[<]\s{0,2}(?:system|assistant|developer|admin)\s{0,2}[\]>]\s{0,4}(?:please\s{1,3}|you\s{1,3}(?:must|should|will|need\s{1,3}to|are\s{1,3}to)\s{1,3})?(?:call|invoke|execute|export|issue|refund|transfer|send|forward|e?mail|upload|post|delete|remove|grant|approve|reveal|disclose|leak|exfiltrat\w{0,6}|disable|cancel)\b",
+        "\b(?:note|message|instructions?)\s(?:to|for)\s(?:the\s)?(?:ai|assistant|agent|model|llm|bot)\s?:\s{0,4}(?:please\s{1,3}|you\s{1,3}(?:must|should|will|need\s{1,3}to|are\s{1,3}to)\s{1,3})?(?:call|invoke|execute|export|issue|refund|transfer|send|forward|e?mail|upload|post|delete|remove|grant|approve|reveal|disclose|leak|exfiltrat\w{0,6}|disable|cancel)\b",
+        "(?:^|[\n\"'\x60{\[(>*#|:;.!?-])\s{0,4}(?:system|assistant|developer|admin\w{0,8}|ai)\s{0,2}:[^.\n]{0,80}?\b(?:(?:call|invoke|trigger|execute|run|use)\s{1,3}(?:the\s{1,3})?(?:[a-z][a-z0-9]{0,30}(?:_[a-z0-9]{1,30}){1,4}|[\w-]{1,40}\s{1,3}(?:tool|function))|(?:with|via|using)\s{1,3}(?:the\s{1,3})?[\w-]{1,40}\s{1,3}(?:tool|function))\b",
+        "[\[<]\s{0,2}(?:system|assistant|developer|admin)\s{0,2}[\]>][^.\n]{0,80}?\b(?:(?:call|invoke|trigger|execute|run|use)\s{1,3}(?:the\s{1,3})?(?:[a-z][a-z0-9]{0,30}(?:_[a-z0-9]{1,30}){1,4}|[\w-]{1,40}\s{1,3}(?:tool|function))|(?:with|via|using)\s{1,3}(?:the\s{1,3})?[\w-]{1,40}\s{1,3}(?:tool|function))\b",
+        "\b(?:note|message|instructions?)\s(?:to|for)\s(?:the\s)?(?:ai|assistant|agent|model|llm|bot)\s?:[^.\n]{0,80}?\b(?:(?:call|invoke|trigger|execute|run|use)\s{1,3}(?:the\s{1,3})?(?:[a-z][a-z0-9]{0,30}(?:_[a-z0-9]{1,30}){1,4}|[\w-]{1,40}\s{1,3}(?:tool|function))|(?:with|via|using)\s{1,3}(?:the\s{1,3})?[\w-]{1,40}\s{1,3}(?:tool|function))\b"
+    ] nocase regex
+    $sink = [
+        "\b(?:curl|wget|Invoke-WebRequest|iwr|irm|ncat|nc|scp|rsync)\b",
+        "https?:\/\/",
+        "\b(?:fetch|axios|urlopen|httpx)\b|\brequests\.(?:post|put|patch|get)\b"
+    ] nocase regex
+condition:
+    ((any out1 in tool_calls where out1.arguments.* contains $sink)
+        after(within: 100)
+        ((any rd in tool_calls where rd.arguments.* contains $credpath) or (any rs in tool_responses where rs.content contains $secret)))
+    and
+    ((any out2 in tool_calls where out2.arguments.* contains $sink)
+        after(within: 100)
+        (any ing in tool_responses where ing.content contains $directive))
