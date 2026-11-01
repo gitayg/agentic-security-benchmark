@@ -182,7 +182,22 @@ ticket.
 
 ### Inbound (stage `output`) — reconciled, no longer a bound
 
-The adapter reproduces the shipped hook's **whole** inbound path: threats 65 and 32 dropped
+**From MoorAI v1.4.0 on, nothing below is copied.** The hook's inbound decision moved into
+`cli/inbound.mjs`, which loads without side effects, so for a checkout that has it the adapter calls
+its `decideInbound(engine, policy, text, { surface: "web", stage: "output", mask: false })` — the call
+`handlePostToolUse` makes for a WebFetch/WebSearch result — and takes each kept finding's action from
+`inboundActionFor`. `init()` fails the run if the hook stops making that call. Reconciled at 1.46.1 /
+`9808836` against `scripts/score-webfetch-benign.mjs --split tune`: 10/149 false positives on both
+sides, the same 10 ids with the same threat ids, 8/9 true positives. Residual divergence: **zero**.
+Wider check, at 1.46.1 and 1.47.0: all 207 output-stage texts in the corpora, sent through the real
+hook as a WebFetch `PostToolUse` with the threat ids read off its alert wire, fire the same threat ids
+as `scanText` on every one (56 detected either way). The decision differs on 4 benign pages, all #39:
+the hook masks the credential in the result, the adapter reports #39 as `notify`. That moves no caught
+or false-positive count. The literal copy and its fidelity check below remain for checkouts older
+than v1.4.0 (the copy stopped matching the hook at v0.98.0); MoorAI 0.79.9 through this adapter, on the
+corpora at `bf2ec35`, reproduces the published 0.79.9 result block for block: 212/286, 64/875.
+
+For checkouts before v1.4.0, the adapter reproduces the shipped hook's **whole** inbound path: threats 65 and 32 dropped
 unconditionally, *and* the per-threat `INBOUND_GATES` predicates for threats 15 and 17. The gates
 cannot be imported (`cli/moorai-hook.mjs` executes its hook on import), so they are copied literally
 and `init()` re-reads the checkout and asserts the copy still matches the hook's regex literals, in
@@ -240,7 +255,9 @@ posture is **enrolled, no org policy**: an install token and nothing else, so `c
 `BUILTIN_DEFAULT_ACTIONS` is the whole of the enforcement. That is `score-vector24.mjs`'s `builtin`
 mode, and it is the same posture the text side scores under (`policy === null`).
 
-**Reconciliation.** Against `scripts/score-vector24.mjs --vector 4 --mode builtin`, MoorAI 0.79.9,
+**Reconciliation.** At MoorAI 1.46.1 / `9808836` both sides report 25/57 stopped and 1/24 benign
+FP, with the same 32 missed ids and the same false-positive id (`v4-benign-003`). The original
+reconciliation, against `scripts/score-vector24.mjs --vector 4 --mode builtin`, MoorAI 0.79.9,
 checkout `ed1ec85`, same 57 attacks / 24 benign controls (byte-identical samples; only JSON formatting
 differs):
 

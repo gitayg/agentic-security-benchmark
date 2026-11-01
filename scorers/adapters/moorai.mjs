@@ -78,6 +78,18 @@
 // drifted from the shipped hook FAILS THE RUN with an actionable message instead of quietly
 // publishing a stale number. The same check covers OUTBOUND_ONLY_THREATS.
 //
+// FROM AGENT v1.4.0 THE COPY IS NOT USED. The hook's inbound decision moved into its own module,
+// cli/inbound.mjs (decideInbound / applyInbound), which has no side effects on import and is shared by
+// the hook, the SDK, the MCP guard and the gateway. When the checkout has that file, init() imports it
+// and scanText at stage "output" calls decideInbound(engine, policy, text, { surface: "web",
+// stage: "output", mask: false }) — the same call handlePostToolUse makes for a WebFetch/WebSearch
+// result, so nothing on the inbound path is replicated any more. init() asserts the hook still makes
+// that call. Prevention on a kept finding comes from inbound.inboundActionFor (data-class threats
+// notify, injection threats justify), as in the hook. mask is false: a masked #39 is reported as a
+// notify finding, never as a prevention. Content-rule findings (threatId 0) are left out, as on every
+// other stage, where this adapter calls engine.scan. The literal copy and assertGateFidelity below
+// remain for checkouts older than v1.4.0.
+//
 // Set MOORAI_ADAPTER_RAW_OUTPUT=1 to turn the whole inbound reconciliation off and see the raw-engine
 // numbers instead. That is the upper bound the adapter used to publish, kept as a diagnostic.
 //
@@ -356,6 +368,7 @@ function runHook(payload) {
 }
 
 let engine = null;
+let inbound = null;      // the checkout's cli/inbound.mjs, when it has one (agent v1.4.0+)
 let threatActionFor = null;
 let runAgentDetections = null;
 let version = "unknown";
@@ -413,7 +426,16 @@ export default {
     engine = new mods.engine.DetectionEngine(threats, mods.detectors.DETECTORS, mods.contentRules.CONTENT_RULES);
     threatActionFor = mods.hookCore.threatActionFor;
     runAgentDetections = mods.baseline.runAgentDetections;
-    if (!process.env.MOORAI_ADAPTER_RAW_OUTPUT) assertGateFidelity(root);
+    if (existsSync(join(root, "cli", "inbound.mjs"))) {
+      inbound = await imp("cli/inbound.mjs");
+      const hookSrc = readFileSync(join(root, "cli", "moorai-hook.mjs"), "utf8");
+      if (!/decideInbound\(engine, policy, text, \{ surface: surfaceOf\(tool\), stage: "output"/.test(hookSrc)) {
+        throw new Error(
+          `${join(root, "cli", "moorai-hook.mjs")} no longer calls decideInbound(engine, policy, text, { surface: surfaceOf(tool), stage: "output", ... }).\n` +
+          "  scorers/adapters/moorai.mjs scores stage \"output\" through that call; re-read handlePostToolUse and update the adapter."
+        );
+      }
+    } else if (!process.env.MOORAI_ADAPTER_RAW_OUTPUT) assertGateFidelity(root);
     ({ policy, source: policySource } = loadPolicy());
     // Loud on purpose. A run under an enforcing org policy is a DIFFERENT measurement from the
     // out-of-the-box one, and the difference is large (see the header table). Nobody should be able
@@ -444,6 +466,23 @@ export default {
     const st = stage || "prompt";
     const t = String(text ?? "");
     const findings = toFindings(engine.scan(t, st));
+    if (st === "output" && !process.env.MOORAI_ADAPTER_RAW_OUTPUT && inbound) {
+      // cli/moorai-hook.mjs handlePostToolUse -> decideInbound(..., { surface: surfaceOf("WebFetch"), stage: "output" })
+      const d = inbound.decideInbound(engine, policy, t, { surface: "web", stage: "output", mask: false });
+      const out = [];
+      const seen = new Set();
+      for (const f of d.findings) {
+        if (f.threatId === 0 || seen.has(f.threatId)) continue;
+        seen.add(f.threatId);
+        out.push({
+          id: f.threatId,
+          category: f.detectorId ? String(f.detectorId) : null,
+          severity: f.riskLevel ? String(f.riskLevel) : null,
+          action: inbound.inboundActionFor(policy, f.threatId)
+        });
+      }
+      return out;
+    }
     if (st === "output" && !process.env.MOORAI_ADAPTER_RAW_OUTPUT) {
       // cli/moorai-hook.mjs handlePostToolUse -> dropOutboundOnly(raw, OUTBOUND_ONLY_THREATS, policy, text)
       return findings.filter((f) => !OUTBOUND_ONLY_THREATS.has(f.id) && gatePasses(f.id, t));
