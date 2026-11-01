@@ -10,12 +10,19 @@ only kind of number worth publishing.
 Files are replaced rather than accumulated, one per product. `moorai-v0.79.6.json` was the previous
 row; it was produced by a harness that scored vector 4 through a text flattening that no longer
 exists, so it is superseded rather than kept alongside. It is still in git history.
+`moorai-v0.79.9.json` is superseded the same way. Two builds were scored for its replacement,
+`moorai-v1.46.1.json` and `moorai-v1.47.0.json`; one row is kept when the result is published and the
+other dropped. Both were produced by the adapter at `c9ef086` (benchmark 0.5.1), named in each file's
+`product.adapterVersion`. The corpora had grown in
+between (vector 3's runtime-preload set, 286 → 299 attacks, 875 → 878 benign), so the like-for-like
+comparison is 0.79.9 re-run on today's corpora, listed in the new file's `knownDeviations`.
 
 ## What is here
 
 | File | Product | Recall | FP rate | Run by | Conflict of interest |
 |---|---|--:|--:|---|---|
-| `moorai-v0.79.9.json` | MoorAI agent 0.79.9 | 74.1% (212/286) | 7.3% (64/875) | the benchmark maintainer | **Yes — same author.** Stated, not hidden. |
+| `moorai-v1.46.1.json` | MoorAI agent 1.46.1 | 77.6% (232/299) | 4.9% (43/878) | the benchmark maintainer | **Yes — same author.** Stated, not hidden. |
+| `moorai-v1.47.0.json` | MoorAI agent 1.47.0 | 77.9% (233/299) | 4.9% (43/878) | the benchmark maintainer | **Yes — same author.** Stated, not hidden. |
 | `keyword-baseline.json` | `keyword` reference adapter | 40.3% (85/211) | 5.0% (42/841) | the benchmark maintainer | None. Floor, not a product. |
 | `null-floor.json` | `null` adapter | 0.0% (0/286) | 0.0% (0/875) | the benchmark maintainer | None. Harness sanity check. |
 | `TEMPLATE.json` | — | — | — | — | Copy this. |
@@ -29,28 +36,30 @@ Read that table with the limits attached, not as a ranking:
   so the 28 vector-5 event and session samples and the 81 vector-4 action samples were never put to it
   and are excluded rather than counted as misses — its denominator is 211, not 286. Compare rates,
   never raw counts.
-- **MoorAI's number includes a tune half it was developed against.** It scores 100% (61/61) on
+- **MoorAI's number includes a tune half it was developed against.** It scores 98.4% (60/61) on
   `heldout-v2-tune`, which measures memorisation rather than generalisation. That corpus is in the
-  total, so the 74.1% is flattered by it. This is stated rather than corrected because removing it
+  total, so the 77.6% / 77.9% is flattered by it. This is stated rather than corrected because removing it
   would be a different kind of dishonesty — the fix is to read the per-corpus breakdown.
 - **MoorAI's adapter has documented deviations** from the shipped product, listed in its own
   `knownDeviations` field, each with a measured size rather than a caveat:
-  - **Inbound: none left.** The adapter now replicates the shipped hook's whole `PostToolUse` path,
-    including the `INBOUND_GATES` predicates it previously could not. It agrees sample-for-sample
-    with MoorAI's own hook-spawning scorer on the same corpus — 27 false positives of 149 either way.
-    The previous version of this file published 43.62% there as an *upper bound*; the real figure is
-    18.12%, and the correction moved the overall FP rate from 12.0% (105/875) to 7.5% (66/875).
-    Recall did not move: a gate can only remove findings.
+  - **Inbound: none left.** From agent v1.4.0 the adapter calls the checkout's own
+    `cli/inbound.mjs` `decideInbound` rather than a copy of it. At 1.46.1 it agrees sample-for-sample
+    with MoorAI's own hook-spawning scorer — 10 false positives of 149 either way, the same ids and
+    threats, 8 of 9 true positives — and fires the same threat ids as the real hook on all 207
+    output-stage texts in the corpora (1.47.0 likewise). (At 0.79.9, through the literal copy older checkouts still use,
+    the figure was 27/149.)
   - **Vector 4: fixed, and reconciled.** The adapter now implements `scanAction` and spawns the
     product's real PreToolUse hook as a subprocess against a sandboxed `HOME`, at the same
     out-of-the-box posture the text side uses. It agrees with MoorAI's own `scripts/score-vector24.mjs
-    --mode builtin` sample-for-sample: 18/57 stopped and 1/24 false positive on both sides, the same
-    39 missed ids, the same one false-positive id. Residual divergence: **zero**. The previous harness
+    --mode builtin` sample-for-sample: at 1.46.1, 25/57 stopped and 1/24 false positive on both sides,
+    the same 32 missed ids, the same one false-positive id; at 1.47.0, 26/57 at the harm step and
+    27/57 at any step on both sides (`v4-chain-002` is asked at its first step and allowed at the harm
+    step). Residual divergence: **zero**. The previous harness
     flattened those 81 tool calls to text and reported 20/57 prevented, 36/57 detected and 3/24 FP —
     the detection figure had no hook analogue at all. That is the whole of the movement in MoorAI's
     overall number: every other corpus scores identically to the 0.79.6 file.
   - **No enrolled tenant policy**, so prevention is understated — by roughly 18/57 → 43/57 on vector
-    4, measured. `MOORAI_POLICY` now makes that a parameter on both surfaces, but no number here was
+    4, measured at 0.79.9 and not re-measured at 1.46.1. `MOORAI_POLICY` now makes that a parameter on both surfaces, but no number here was
     produced with it.
 
 `null-floor.json` and `keyword-baseline.json` are not products and are not for sale. They exist so a
